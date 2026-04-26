@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+inst/doc
+docs/
+_targets/
+_targets_*
+*.o
+*.so
+*.dll
+result
