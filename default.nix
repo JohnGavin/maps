@@ -10,8 +10,22 @@
 # compatibility with older R versions and R packages for Linux/WSL and
 # Apple Silicon computers.
 # Report any issues to https://github.com/ropensci/rix
+#
+# MANUAL PATCH (2026-04-26):
+# 1. Override udunits with -std=gnu89 to fix Apple Silicon Clang rejection
+#    of K&R C function definitions in unitcore.c.
+# 2. Add shellHook to rebuild R_LIBS_SITE from derivation closure, preventing
+#    ABI mismatch segfaults when entering this shell from inside another nix-shell.
 let
- pkgs = import (fetchTarball "https://github.com/rstats-on-nix/nixpkgs/archive/2026-04-22.tar.gz") {};
+ pkgs = import (fetchTarball "https://github.com/rstats-on-nix/nixpkgs/archive/2026-04-22.tar.gz") {
+   overlays = [
+     (final: prev: {
+       udunits = prev.udunits.overrideAttrs (old: {
+         NIX_CFLAGS_COMPILE = (old.NIX_CFLAGS_COMPILE or "") + " -std=gnu89";
+       });
+     })
+   ];
+ };
  
   rpkgs = builtins.attrValues {
     inherit (pkgs.rPackages) 
@@ -59,6 +73,23 @@ let
     LC_MEASUREMENT = "en_US.UTF-8";
     
     buildInputs = [ rpkgs system_packages ];
+
+    shellHook = ''
+      R_LIBS_SITE=""
+      for pkg in $buildInputs; do
+        for dep in $(nix-store -qR "$pkg" 2>/dev/null); do
+          if [ -d "$dep/library" ]; then
+            case ":$R_LIBS_SITE:" in
+              *":$dep/library:"*) ;;
+              *) R_LIBS_SITE="''${R_LIBS_SITE:+$R_LIBS_SITE:}$dep/library" ;;
+            esac
+          fi
+        done
+      done
+      export R_LIBS_SITE
+      unset R_LIBS_USER
+      unset R_LIBS
+    '';
     
   }; 
 in

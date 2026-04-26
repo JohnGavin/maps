@@ -1,0 +1,40 @@
+---
+title: "maps"
+subtitle: "Hierarchical Geographic Maps with Sea-Distance Analysis"
+---
+
+## Overview
+
+The `maps` R package draws hierarchical administrative boundary maps for EU countries and computes sea-distance metrics via spatial adjacency graphs.
+
+### Ireland Example
+
+Ireland serves as the primary case study with its administrative hierarchy:
+
+| Level | Count | Source |
+|-------|------:|--------|
+| Countries (island) | 3 | IE, NI, island outline |
+| Provinces | 4 | Connacht, Leinster, Munster, Ulster |
+| Counties | 32 | Traditional counties |
+
+### Sea Distance
+
+Counties are classified by graph distance from the coast:
+
+- **Distance 0**: Counties touching the sea
+- **Distance 1**: Counties adjacent to a coastal county
+- **Distance 2**: Counties two hops from the coast
+
+See the [Dashboard](vignettes/articles/dashboard.qmd) for interactive maps.
+
+## Installation
+
+```r
+# install.packages("pak")
+pak::pak("JohnGavin/maps")
+```
+
+## Links
+
+- [GitHub](https://github.com/JohnGavin/maps)
+- [Issue #1: T language evaluation](https://github.com/JohnGavin/maps/issues/1)

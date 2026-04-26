@@ -1,0 +1,32 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "maps"
+  description: "Hierarchical geographic maps with sea-distance analysis for Ireland"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: vignettes/articles/dashboard.qmd
+        text: Dashboard
+  sidebar: false
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    fig-align: left
+    cap-location: top
+
+execute:
+  freeze: auto
+  cache: true
+
+knitr:
+  opts_chunk:
+    echo: false
+    message: false
+    warning: false
