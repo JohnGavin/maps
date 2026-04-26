@@ -122,6 +122,7 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#failed-approaches" id="toc-failed-approaches" class="nav-link" data-scroll-target="#failed-approaches">Failed Approaches</a></li>
   <li><a href="#accuracy-metrics" id="toc-accuracy-metrics" class="nav-link" data-scroll-target="#accuracy-metrics">Accuracy / Metrics</a></li>
   <li><a href="#failed-approaches-1" id="toc-failed-approaches-1" class="nav-link" data-scroll-target="#failed-approaches-1">Failed Approaches</a></li>
+  <li><a href="#failed-approaches-continued" id="toc-failed-approaches-continued" class="nav-link" data-scroll-target="#failed-approaches-continued">Failed Approaches (continued)</a></li>
   <li><a href="#known-limitations" id="toc-known-limitations" class="nav-link" data-scroll-target="#known-limitations">Known Limitations</a></li>
   </ul></li>
   </ul></li>
@@ -177,17 +178,31 @@ ul.task-list li input[type="checkbox"] {
 <section id="failed-approaches-1" class="level3">
 <h3 class="anchored" data-anchor-id="failed-approaches-1">Failed Approaches</h3>
 <ul>
-<li>udunits on Apple Silicon: K&amp;R C function definitions rejected by Clang C17 default. Fixed with -std=gnu89 overlay.</li>
-<li>R segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.</li>
-<li>NOTE: Running <code>Rscript default.R</code> will overwrite the manual nix patches. Must re-apply after regeneration.</li>
+<li><p>udunits on Apple Silicon: K&amp;R C function definitions rejected by Clang C17 default. Fixed with -std=gnu89 overlay.</p></li>
+<li><p>R segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.</p></li>
+<li><p>NOTE: Running <code>Rscript default.R</code> will overwrite the manual nix patches. Must re-apply after regeneration.</p></li>
+<li><p>Implemented true 32 Irish counties via GADM: 26 ROI (level 1) + 6 NI (dissolved from 26 district councils)</p></li>
+<li><p>Rendered and deployed dashboard to gh-pages: https://johngavin.github.io/maps/</p></li>
+<li><p>Dashboard shows interactive leaflet choropleth with sea-distance colouring</p></li>
+</ul>
+</section>
+<section id="failed-approaches-continued" class="level3">
+<h3 class="anchored" data-anchor-id="failed-approaches-continued">Failed Approaches (continued)</h3>
+<ul>
+<li>giscoR NUTS3 gives only 8 Irish planning regions, not 32 counties. GADM via direct URL is the solution.</li>
+<li>giscoR LAU gives 166 Irish local electoral areas, not counties.</li>
+<li>No standard dataset has pre-built 6 traditional NI counties — 2015 reform replaced them with 11 councils everywhere. Dissolving GADM level 3 districts via lookup table works.</li>
+<li><code>gisco_get_coastallines(year = 2021)</code> fails — only years 2006/2010/2013/2016 available. Changed to 2016.</li>
+<li>Multi-line <code>!expr paste0(...)</code> in Quarto <code>fig-cap</code> causes YAML parse error. Pre-compute captions in setup chunk.</li>
+<li><code>orientation: pages</code> not valid in Quarto dashboard format. Changed to <code>orientation: rows</code>.</li>
 </ul>
 </section>
 <section id="known-limitations" class="level3">
 <h3 class="anchored" data-anchor-id="known-limitations">Known Limitations</h3>
 <ul>
-<li>OSM deep hierarchy (baronies, parishes, townlands) not yet implemented — giscoR covers NUTS0-3 only</li>
-<li>Dashboard not yet rendered/deployed to gh-pages (needs quarto render in nix shell)</li>
-<li>giscoR NUTS3 gives 8 Irish regions, not 32 traditional counties — may need GADM or OSM for true county level</li>
+<li>OSM deep hierarchy (baronies, parishes, townlands) not yet implemented</li>
+<li>Belfast assigned to County Antrim (straddles Antrim/Down but canonically Antrim)</li>
+<li>Running <code>Rscript default.R</code> overwrites manual nix patches (udunits + shellHook)</li>
 <li>T language integration TBD (JohnGavin/maps#1)</li>
 </ul>
 

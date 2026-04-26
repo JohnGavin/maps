@@ -29,10 +29,28 @@ See the [Dashboard](vignettes/articles/dashboard.qmd) for interactive maps.
 
 ## Installation
 
+::: {.panel-tabset}
+
+### R
+
 ```r
 # install.packages("pak")
 pak::pak("JohnGavin/maps")
 ```
+
+### Nix
+
+```bash
+# Clone and enter the reproducible nix shell
+git clone https://github.com/JohnGavin/maps.git
+cd maps
+nix-shell default.nix
+```
+
+The `default.nix` provides R 4.5.3 with all dependencies (sf, giscoR, igraph,
+leaflet, etc.) pinned to a specific nixpkgs snapshot for full reproducibility.
+
+:::
 
 ## Links
 

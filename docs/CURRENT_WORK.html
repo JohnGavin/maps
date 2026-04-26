@@ -116,12 +116,11 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#current-work" id="toc-current-work" class="nav-link active" data-scroll-target="#current-work">Current Work</a>
   <ul class="collapse">
-  <li><a href="#status-dashboard-created-nix-fixed.-ready-to-render-and-deploy." id="toc-status-dashboard-created-nix-fixed.-ready-to-render-and-deploy." class="nav-link" data-scroll-target="#status-dashboard-created-nix-fixed.-ready-to-render-and-deploy.">Status: Dashboard created, nix fixed. Ready to render and deploy.</a></li>
+  <li><a href="#status-dashboard-deployed-to-gh-pages-with-32-irish-counties." id="toc-status-dashboard-deployed-to-gh-pages-with-32-irish-counties." class="nav-link" data-scroll-target="#status-dashboard-deployed-to-gh-pages-with-32-irish-counties.">Status: Dashboard deployed to gh-pages with 32 Irish counties.</a></li>
+  <li><a href="#live-site" id="toc-live-site" class="nav-link" data-scroll-target="#live-site">Live Site</a></li>
   <li><a href="#completed" id="toc-completed" class="nav-link" data-scroll-target="#completed">Completed</a></li>
   <li><a href="#next-steps" id="toc-next-steps" class="nav-link" data-scroll-target="#next-steps">Next Steps</a></li>
-  <li><a href="#r-package-versions-needed-ctx-tracking" id="toc-r-package-versions-needed-ctx-tracking" class="nav-link" data-scroll-target="#r-package-versions-needed-ctx-tracking">R Package Versions Needed (ctx tracking)</a></li>
   <li><a href="#architecture" id="toc-architecture" class="nav-link" data-scroll-target="#architecture">Architecture</a></li>
-  <li><a href="#known-issues" id="toc-known-issues" class="nav-link" data-scroll-target="#known-issues">Known Issues</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -134,100 +133,51 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="current-work" class="level1">
 <h1>Current Work</h1>
-<section id="status-dashboard-created-nix-fixed.-ready-to-render-and-deploy." class="level2">
-<h2 class="anchored" data-anchor-id="status-dashboard-created-nix-fixed.-ready-to-render-and-deploy.">Status: Dashboard created, nix fixed. Ready to render and deploy.</h2>
+<section id="status-dashboard-deployed-to-gh-pages-with-32-irish-counties." class="level2">
+<h2 class="anchored" data-anchor-id="status-dashboard-deployed-to-gh-pages-with-32-irish-counties.">Status: Dashboard deployed to gh-pages with 32 Irish counties.</h2>
+</section>
+<section id="live-site" class="level2">
+<h2 class="anchored" data-anchor-id="live-site">Live Site</h2>
+<ul>
+<li>Homepage: https://johngavin.github.io/maps/</li>
+<li>Dashboard: https://johngavin.github.io/maps/vignettes/articles/dashboard.html</li>
+</ul>
 </section>
 <section id="completed" class="level2">
 <h2 class="anchored" data-anchor-id="completed">Completed</h2>
 <ul class="task-list">
 <li><label><input type="checkbox" checked="">Package skeleton (DESCRIPTION, LICENSE, .gitignore)</label></li>
-<li><label><input type="checkbox" checked="">default.R + default.nix via rix (R 4.5.3)</label></li>
-<li><label><input type="checkbox" checked="">R/get_boundaries.R (giscoR NUTS levels)</label></li>
+<li><label><input type="checkbox" checked="">default.R + default.nix via rix (R 4.5.3, patched for udunits + shellHook)</label></li>
+<li><label><input type="checkbox" checked="">R/get_boundaries.R (GADM 32 counties: 26 ROI + 6 NI dissolved)</label></li>
 <li><label><input type="checkbox" checked="">R/sea_distance.R (sf::st_touches + igraph BFS)</label></li>
 <li><label><input type="checkbox" checked="">Tests pass: [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]</label></li>
 <li><label><input type="checkbox" checked="">NAMESPACE + man pages generated</label></li>
 <li><label><input type="checkbox" checked="">GitHub repo: https://github.com/JohnGavin/maps</label></li>
 <li><label><input type="checkbox" checked="">Issue #1: T language evaluation</label></li>
 <li><label><input type="checkbox" checked="">Nix environment fixed (udunits overlay + shellHook)</label></li>
-<li><label><input type="checkbox" checked="">Quarto dashboard created (2-page leaflet + summary)</label></li>
-<li><label><input type="checkbox" checked="">index.qmd + _quarto.yml</label></li>
+<li><label><input type="checkbox" checked="">Quarto dashboard rendered and deployed to gh-pages</label></li>
+<li><label><input type="checkbox" checked="">32 traditional Irish counties (GADM, not NUTS3)</label></li>
 </ul>
 </section>
 <section id="next-steps" class="level2">
 <h2 class="anchored" data-anchor-id="next-steps">Next Steps</h2>
 <ol type="1">
-<li>Render dashboard: <code>nix-shell default.nix --run "quarto render"</code></li>
-<li>Deploy docs/ to gh-pages</li>
-<li>Implement deeper OSM hierarchy (baronies, parishes) via osmdata</li>
-<li>Investigate NUTS3 vs true 32 counties (GADM or OSM needed)</li>
+<li>Implement deeper OSM hierarchy (baronies, parishes, townlands) via osmdata</li>
+<li>Add province-level map page to dashboard</li>
+<li>Extend to other EU countries</li>
 <li>Resolve JohnGavin/maps#1 (T language decision)</li>
+<li>Add GitHub Actions CI for automated rendering</li>
 </ol>
-</section>
-<section id="r-package-versions-needed-ctx-tracking" class="level2">
-<h2 class="anchored" data-anchor-id="r-package-versions-needed-ctx-tracking">R Package Versions Needed (ctx tracking)</h2>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>Package</th>
-<th>Purpose</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>sf</td>
-<td>Geometry engine</td>
-<td>In DESCRIPTION Imports, nix OK</td>
-</tr>
-<tr class="even">
-<td>giscoR</td>
-<td>NUTS/LAU boundaries</td>
-<td>In DESCRIPTION Suggests, nix OK</td>
-</tr>
-<tr class="odd">
-<td>igraph</td>
-<td>BFS graph traversal</td>
-<td>In DESCRIPTION Imports, nix OK</td>
-</tr>
-<tr class="even">
-<td>osmdata</td>
-<td>Deep OSM hierarchy</td>
-<td>In DESCRIPTION Suggests</td>
-</tr>
-<tr class="odd">
-<td>leaflet</td>
-<td>Interactive maps</td>
-<td>In DESCRIPTION Suggests</td>
-</tr>
-<tr class="even">
-<td>dplyr</td>
-<td>Data wrangling</td>
-<td>In DESCRIPTION Imports, nix OK</td>
-</tr>
-<tr class="odd">
-<td>quarto</td>
-<td>Dashboard rendering</td>
-<td>In default.R</td>
-</tr>
-</tbody>
-</table>
 </section>
 <section id="architecture" class="level2">
 <h2 class="anchored" data-anchor-id="architecture">Architecture</h2>
 <ul>
-<li><code>R/get_boundaries.R</code> — fetch Ireland admin boundaries via giscoR (NUTS levels)</li>
+<li><code>R/get_boundaries.R</code> — GADM 32 counties + giscoR NUTS for country/province</li>
 <li><code>R/sea_distance.R</code> — adjacency graph via sf::st_touches + BFS via igraph</li>
 <li><code>tests/testthat/test-sea_distance.R</code> — unit tests for distance computation</li>
-<li><code>vignettes/articles/dashboard.qmd</code> — 2-page leaflet dashboard</li>
-<li><code>index.qmd</code> — site homepage</li>
-<li><code>_quarto.yml</code> — website config (output to docs/)</li>
-</ul>
-</section>
-<section id="known-issues" class="level2">
-<h2 class="anchored" data-anchor-id="known-issues">Known Issues</h2>
-<ul>
-<li>Running <code>Rscript default.R</code> overwrites manual nix patches (udunits overlay + shellHook)</li>
-<li>giscoR NUTS3 gives 8 Irish regions, not 32 counties — need GADM or OSM for true county boundaries</li>
+<li><code>vignettes/articles/dashboard.qmd</code> — 2-page leaflet + summary dashboard</li>
+<li><code>index.qmd</code> + <code>_quarto.yml</code> — Quarto website, output to docs/</li>
+<li><code>docs/</code> — rendered site served by gh-pages</li>
 </ul>
 
 
