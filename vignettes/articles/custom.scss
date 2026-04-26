@@ -1,0 +1,16 @@
+/*-- scss:defaults --*/
+$navbar-bg: #1a3a5c;
+$navbar-fg: #ffffff;
+
+/*-- scss:rules --*/
+.navbar, .quarto-dashboard .navbar {
+  background-color: #1a3a5c !important;
+}
+.navbar .navbar-brand,
+.navbar .nav-link,
+.navbar-title {
+  color: #ffffff !important;
+}
+.navbar .nav-link:hover {
+  color: #cce0ff !important;
+}

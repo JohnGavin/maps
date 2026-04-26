@@ -7,9 +7,12 @@
 compute_sea_distance(counties, coastline)
 }
 \arguments{
-\item{counties}{An sf object of county polygons.}
+\item{counties}{An sf object of county polygons (any CRS, or no CRS for
+planar test data).}
 
-\item{coastline}{An sf linestring of coastlines.}
+\item{coastline}{An sf object of coastlines — either LINESTRING/MULTILINESTRING
+geometries, or POLYGON/MULTIPOLYGON land-mass geometries (e.g. from
+\code{giscoR::gisco_get_coastallines()}).}
 }
 \value{
 The input sf object with an added \code{sea_distance} integer column.
@@ -17,4 +20,25 @@ The input sf object with an added \code{sea_distance} integer column.
 \description{
 Classify counties by their graph distance from the sea.
 Distance 0 = touches the sea, distance 1 = neighbour of a coastal county, etc.
+}
+\details{
+\subsection{Coastal Detection}{
+
+The \code{coastline} argument accepts either linestring geometries \strong{or} polygon
+geometries (as returned by \code{giscoR::gisco_get_coastallines()}).  When polygon
+geometries are detected they are first converted to their exterior boundary
+linestrings via \code{sf::st_boundary()}, then cropped to the bounding box of
+\code{counties}, and finally dissolved into a single linestring with
+\code{sf::st_union()}.  This prevents the "all counties coastal" bug that arises
+when the raw polygon land-mass geometry spatially contains every county.
+}
+
+\subsection{Adjacency}{
+
+When \code{counties} has a geographic CRS (longitude/latitude or projected), the
+adjacency matrix is built using a 200 m buffer in EPSG:2157 (Irish Transverse
+Mercator) to handle the small coordinate gaps in GADM polygon boundaries that
+cause \code{sf::st_touches()} to miss many shared edges.  For CRS-less synthetic
+geometries (e.g. unit-square test data) \code{sf::st_touches()} is used directly.
+}
 }
