@@ -26,8 +26,18 @@
 ### Accuracy / Metrics
 - Tests: 2 test cases, 5 assertions, all passing [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]
 
+- Created Quarto dashboard: 2-page leaflet choropleth + summary table/bar chart
+- Fixed nix environment: udunits -std=gnu89 overlay + R_LIBS_SITE shellHook isolation
+- All core packages now load in nix shell: sf, giscoR, igraph, dplyr
+- Added index.qmd and _quarto.yml (docs/ output for gh-pages)
+
+### Failed Approaches
+- udunits on Apple Silicon: K&R C function definitions rejected by Clang C17 default. Fixed with -std=gnu89 overlay.
+- R segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.
+- NOTE: Running `Rscript default.R` will overwrite the manual nix patches. Must re-apply after regeneration.
+
 ### Known Limitations
-- Nix shell cannot build on Apple Silicon (udunits regression) — needs later nixpkgs pin
 - OSM deep hierarchy (baronies, parishes, townlands) not yet implemented — giscoR covers NUTS0-3 only
-- Quarto dashboard not yet created
+- Dashboard not yet rendered/deployed to gh-pages (needs quarto render in nix shell)
+- giscoR NUTS3 gives 8 Irish regions, not 32 traditional counties — may need GADM or OSM for true county level
 - T language integration TBD (JohnGavin/maps#1)
