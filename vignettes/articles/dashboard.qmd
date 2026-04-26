@@ -207,14 +207,15 @@ cap_dot <- paste0(
   "at each sea-distance level. ",
   "The x-axis gives the number of counties; ",
   "the y-axis gives sea distance in county hops (0 = directly coastal). ",
-  "Dots use the same viridis palette as the map for visual correspondence. ",
-  n_coastal, " counties are coastal (distance 0). ",
+  n_coastal, " counties are coastal (distance 0); ",
+  "the most inland (distance ", max_distance, ") is ", paste(deepest_names, collapse = " and "), ". ",
   "Source: GADM 4.1 (ROI + NI); sea distance from igraph BFS."
 )
 
-# ---- colour palette (viridis, colorblind-safe) --------------------------------
+# ---- colour palette (bright on black background) -----------------------------
 all_levels   <- as.character(seq(0L, max_distance))
-viridis_ramp <- scales::viridis_pal(option = "D")(length(all_levels))
+# Use plasma (bright yellow/orange/magenta) for contrast on black background
+viridis_ramp <- scales::viridis_pal(option = "C")(length(all_levels))
 names(viridis_ramp) <- all_levels
 
 pal_fn <- leaflet::colorFactor(
@@ -233,8 +234,8 @@ counties_wgs84 <- sf::st_transform(counties, crs = 4326)
 #| label: fig-map
 #| fig-cap: !expr cap_map
 
-leaflet(data = counties_wgs84) |>
-  leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron) |>
+leaflet(data = counties_wgs84, height = "600px") |>
+  leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
   leaflet::addPolygons(
     fillColor   = ~ pal_fn(as.character(sea_distance)),
     fillOpacity = 0.75,
@@ -255,6 +256,23 @@ leaflet(data = counties_wgs84) |>
     title    = "Sea distance<br>(county hops)",
     opacity  = 0.85
   )
+```
+
+```{=html}
+<script>
+// Force leaflet to recalculate size after dashboard tab switch
+document.addEventListener('DOMContentLoaded', function() {
+  // Invalidate on tab shown
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function(tab) {
+    tab.addEventListener('shown.bs.tab', function() {
+      window.dispatchEvent(new Event('resize'));
+    });
+  });
+  // Also invalidate after initial load (200ms delay for widget init)
+  setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500);
+  setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 2000);
+});
+</script>
 ```
 
 ## Column {width="30%"}
@@ -329,6 +347,7 @@ knitr::kable(
   caption = paste0(
     "Distribution of Ireland's ", n_counties, " counties across sea-distance categories. ",
     n_coastal, " are coastal, ", n_inland, " are inland. ",
+    "The most inland (distance ", max_distance, ") is ", paste(deepest_names, collapse = " and "), ". ",
     "Source: GADM 4.1 + GISCO 2016; sea distance via igraph BFS."
   )
 )
@@ -341,16 +360,19 @@ knitr::kable(
 #| fig-cap: !expr cap_dot
 #| fig-height: 3
 
-par(mar = c(4, 6, 2, 1))
+par(mar = c(4, 8, 2, 1), bg = "black", fg = "white",
+    col.axis = "white", col.lab = "white", col.main = "white")
 dotchart(
-  x     = rev(summary_df$n),
+  x      = rev(summary_df$n),
   labels = rev(paste0("Distance ", summary_df$sea_distance)),
   pch    = 19,
-  pt.cex = 2,
+  pt.cex = 2.5,
   color  = rev(viridis_ramp[as.character(summary_df$sea_distance)]),
   xlab   = "Number of counties",
-  main   = paste0("Sea-Distance Distribution (N = ", n_counties, ")")
+  main   = paste0("Sea-Distance Distribution (N = ", n_counties, ")"),
+  lcolor = "grey40"
 )
+grid(col = "grey30", lty = 1)
 ```
 
 ## Column {width="50%"}
