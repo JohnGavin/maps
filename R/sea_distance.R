@@ -8,9 +8,10 @@
 #' @return The input sf object with an added `sea_distance` integer column.
 #' @export
 compute_sea_distance <- function(counties, coastline) {
-  # Build adjacency graph
-  nb <- sfdep::st_contiguity(counties)
-  adj_matrix <- sfdep::st_nb_as_matrix(nb)
+  # Build adjacency matrix using sf::st_touches() (shared-boundary contiguity).
+  # This replaces sfdep::st_contiguity() + sfdep::st_nb_as_matrix() with a
+  # pure sf approach that returns a logical matrix directly.
+  adj_matrix <- sf::st_touches(counties, sparse = FALSE) * 1L
 
   # Create igraph from adjacency
   g <- igraph::graph_from_adjacency_matrix(adj_matrix, mode = "undirected",

@@ -16,12 +16,11 @@ Depends:
     R (>= 4.1.0)
 Imports:
     sf,
-    giscoR,
-    sfdep,
     igraph,
     dplyr,
     rlang
 Suggests:
+    giscoR,
     osmdata,
     leaflet,
     targets,
