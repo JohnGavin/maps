@@ -1,46 +1,35 @@
 # Current Work
 
-## Status: Dashboard created, nix fixed. Ready to render and deploy.
+## Status: Dashboard deployed to gh-pages with 32 Irish counties.
+
+## Live Site
+- Homepage: https://johngavin.github.io/maps/
+- Dashboard: https://johngavin.github.io/maps/vignettes/articles/dashboard.html
 
 ## Completed
 - [x] Package skeleton (DESCRIPTION, LICENSE, .gitignore)
-- [x] default.R + default.nix via rix (R 4.5.3)
-- [x] R/get_boundaries.R (giscoR NUTS levels)
+- [x] default.R + default.nix via rix (R 4.5.3, patched for udunits + shellHook)
+- [x] R/get_boundaries.R (GADM 32 counties: 26 ROI + 6 NI dissolved)
 - [x] R/sea_distance.R (sf::st_touches + igraph BFS)
 - [x] Tests pass: [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]
 - [x] NAMESPACE + man pages generated
 - [x] GitHub repo: https://github.com/JohnGavin/maps
 - [x] Issue #1: T language evaluation
 - [x] Nix environment fixed (udunits overlay + shellHook)
-- [x] Quarto dashboard created (2-page leaflet + summary)
-- [x] index.qmd + _quarto.yml
+- [x] Quarto dashboard rendered and deployed to gh-pages
+- [x] 32 traditional Irish counties (GADM, not NUTS3)
 
 ## Next Steps
-1. Render dashboard: `nix-shell default.nix --run "quarto render"`
-2. Deploy docs/ to gh-pages
-3. Implement deeper OSM hierarchy (baronies, parishes) via osmdata
-4. Investigate NUTS3 vs true 32 counties (GADM or OSM needed)
-5. Resolve JohnGavin/maps#1 (T language decision)
-
-## R Package Versions Needed (ctx tracking)
-| Package | Purpose | Status |
-|---------|---------|--------|
-| sf | Geometry engine | In DESCRIPTION Imports, nix OK |
-| giscoR | NUTS/LAU boundaries | In DESCRIPTION Suggests, nix OK |
-| igraph | BFS graph traversal | In DESCRIPTION Imports, nix OK |
-| osmdata | Deep OSM hierarchy | In DESCRIPTION Suggests |
-| leaflet | Interactive maps | In DESCRIPTION Suggests |
-| dplyr | Data wrangling | In DESCRIPTION Imports, nix OK |
-| quarto | Dashboard rendering | In default.R |
+1. Implement deeper OSM hierarchy (baronies, parishes, townlands) via osmdata
+2. Add province-level map page to dashboard
+3. Extend to other EU countries
+4. Resolve JohnGavin/maps#1 (T language decision)
+5. Add GitHub Actions CI for automated rendering
 
 ## Architecture
-- `R/get_boundaries.R` — fetch Ireland admin boundaries via giscoR (NUTS levels)
+- `R/get_boundaries.R` — GADM 32 counties + giscoR NUTS for country/province
 - `R/sea_distance.R` — adjacency graph via sf::st_touches + BFS via igraph
 - `tests/testthat/test-sea_distance.R` — unit tests for distance computation
-- `vignettes/articles/dashboard.qmd` — 2-page leaflet dashboard
-- `index.qmd` — site homepage
-- `_quarto.yml` — website config (output to docs/)
-
-## Known Issues
-- Running `Rscript default.R` overwrites manual nix patches (udunits overlay + shellHook)
-- giscoR NUTS3 gives 8 Irish regions, not 32 counties — need GADM or OSM for true county boundaries
+- `vignettes/articles/dashboard.qmd` — 2-page leaflet + summary dashboard
+- `index.qmd` + `_quarto.yml` — Quarto website, output to docs/
+- `docs/` — rendered site served by gh-pages

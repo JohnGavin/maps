@@ -36,8 +36,20 @@
 - R segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.
 - NOTE: Running `Rscript default.R` will overwrite the manual nix patches. Must re-apply after regeneration.
 
+- Implemented true 32 Irish counties via GADM: 26 ROI (level 1) + 6 NI (dissolved from 26 district councils)
+- Rendered and deployed dashboard to gh-pages: https://johngavin.github.io/maps/
+- Dashboard shows interactive leaflet choropleth with sea-distance colouring
+
+### Failed Approaches (continued)
+- giscoR NUTS3 gives only 8 Irish planning regions, not 32 counties. GADM via direct URL is the solution.
+- giscoR LAU gives 166 Irish local electoral areas, not counties.
+- No standard dataset has pre-built 6 traditional NI counties — 2015 reform replaced them with 11 councils everywhere. Dissolving GADM level 3 districts via lookup table works.
+- `gisco_get_coastallines(year = 2021)` fails — only years 2006/2010/2013/2016 available. Changed to 2016.
+- Multi-line `!expr paste0(...)` in Quarto `fig-cap` causes YAML parse error. Pre-compute captions in setup chunk.
+- `orientation: pages` not valid in Quarto dashboard format. Changed to `orientation: rows`.
+
 ### Known Limitations
-- OSM deep hierarchy (baronies, parishes, townlands) not yet implemented — giscoR covers NUTS0-3 only
-- Dashboard not yet rendered/deployed to gh-pages (needs quarto render in nix shell)
-- giscoR NUTS3 gives 8 Irish regions, not 32 traditional counties — may need GADM or OSM for true county level
+- OSM deep hierarchy (baronies, parishes, townlands) not yet implemented
+- Belfast assigned to County Antrim (straddles Antrim/Down but canonically Antrim)
+- Running `Rscript default.R` overwrites manual nix patches (udunits + shellHook)
 - T language integration TBD (JohnGavin/maps#1)
