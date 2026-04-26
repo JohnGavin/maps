@@ -1,0 +1,93 @@
+[
+  {
+    "objectID": "prompt_maps.html",
+    "href": "prompt_maps.html",
+    "title": "maps",
+    "section": "",
+    "text": "Find an R package and underlying database that draws geographic maps of countries in the EU, provinces within countries, counties within provinces, districts within counties, parishes within ditricts.\nUse Ireland as an example: 3 countries, 4 provences 32 counties etc\nAt the county level, count the number of counties that touch the sea (distance zero) touch a neighbouring county that touches the sea (distance one), touch a neighbouring county that touches a neighbouring county that the sea (distance two).\nVisualise the steps in a dashboard on gh-pages. Use recent projects vignettes as dashboard templates."
+  },
+  {
+    "objectID": "CHANGELOG.html",
+    "href": "CHANGELOG.html",
+    "title": "Changelog",
+    "section": "",
+    "text": "Initialized R package skeleton: DESCRIPTION, LICENSE, .gitignore\nCreated R/ with get_boundaries.R (giscoR-based Ireland boundary fetching) and sea_distance.R (adjacency graph + BFS sea-distance computation)\nCreated tests/testthat/test-sea_distance.R with unit tests for distance classification\nCreated default.R for rix-based Nix environment (sf, giscoR, sfdep, igraph, leaflet, osmdata)\nResearched package stack: giscoR (NUTS/LAU), osmdata (deep hierarchy), sfdep (adjacency), igraph (BFS)\nFixed sea_distance.R: replaced nonexistent sfdep::st_nb_as_matrix() with sf::st_touches(sparse=FALSE) * 1L\nRemoved sfdep from Imports (unnecessary), moved giscoR to Suggests\nGenerated NAMESPACE and man pages via roxygen2\nCreated GitHub repo: https://github.com/JohnGavin/maps\nPushed initial structure + bug fix\nRaised issue #1: Evaluate T language for Python pipeline nodes\nGenerated default.nix via rix (R 4.5.3, pinned 2026-04-22)\n\n\n\n\n\nsfdep::st_nb_as_matrix() does not exist in sfdep 0.2.5. Replaced with pure sf approach.\nNix shell build fails: udunits-unstable-2021-03-17 compile error on Apple Silicon (nixpkgs regression). Tests run via global shell R instead.\nrix ide = \"other\" deprecated in v0.15.0, replaced with ide = \"none\"\nrix r_ver = \"2025-04-14\" (date format) rejected, must use version string \"4.5.3\"\n\n\n\n\n\nTests: 2 test cases, 5 assertions, all passing [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]\nCreated Quarto dashboard: 2-page leaflet choropleth + summary table/bar chart\nFixed nix environment: udunits -std=gnu89 overlay + R_LIBS_SITE shellHook isolation\nAll core packages now load in nix shell: sf, giscoR, igraph, dplyr\nAdded index.qmd and _quarto.yml (docs/ output for gh-pages)\n\n\n\n\n\nudunits on Apple Silicon: K&R C function definitions rejected by Clang C17 default. Fixed with -std=gnu89 overlay.\nR segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.\nNOTE: Running Rscript default.R will overwrite the manual nix patches. Must re-apply after regeneration.\n\n\n\n\n\nOSM deep hierarchy (baronies, parishes, townlands) not yet implemented — giscoR covers NUTS0-3 only\nDashboard not yet rendered/deployed to gh-pages (needs quarto render in nix shell)\ngiscoR NUTS3 gives 8 Irish regions, not 32 traditional counties — may need GADM or OSM for true county level\nT language integration TBD (JohnGavin/maps#1)"
+  },
+  {
+    "objectID": "CHANGELOG.html#section",
+    "href": "CHANGELOG.html#section",
+    "title": "Changelog",
+    "section": "",
+    "text": "Initialized R package skeleton: DESCRIPTION, LICENSE, .gitignore\nCreated R/ with get_boundaries.R (giscoR-based Ireland boundary fetching) and sea_distance.R (adjacency graph + BFS sea-distance computation)\nCreated tests/testthat/test-sea_distance.R with unit tests for distance classification\nCreated default.R for rix-based Nix environment (sf, giscoR, sfdep, igraph, leaflet, osmdata)\nResearched package stack: giscoR (NUTS/LAU), osmdata (deep hierarchy), sfdep (adjacency), igraph (BFS)\nFixed sea_distance.R: replaced nonexistent sfdep::st_nb_as_matrix() with sf::st_touches(sparse=FALSE) * 1L\nRemoved sfdep from Imports (unnecessary), moved giscoR to Suggests\nGenerated NAMESPACE and man pages via roxygen2\nCreated GitHub repo: https://github.com/JohnGavin/maps\nPushed initial structure + bug fix\nRaised issue #1: Evaluate T language for Python pipeline nodes\nGenerated default.nix via rix (R 4.5.3, pinned 2026-04-22)\n\n\n\n\n\nsfdep::st_nb_as_matrix() does not exist in sfdep 0.2.5. Replaced with pure sf approach.\nNix shell build fails: udunits-unstable-2021-03-17 compile error on Apple Silicon (nixpkgs regression). Tests run via global shell R instead.\nrix ide = \"other\" deprecated in v0.15.0, replaced with ide = \"none\"\nrix r_ver = \"2025-04-14\" (date format) rejected, must use version string \"4.5.3\"\n\n\n\n\n\nTests: 2 test cases, 5 assertions, all passing [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]\nCreated Quarto dashboard: 2-page leaflet choropleth + summary table/bar chart\nFixed nix environment: udunits -std=gnu89 overlay + R_LIBS_SITE shellHook isolation\nAll core packages now load in nix shell: sf, giscoR, igraph, dplyr\nAdded index.qmd and _quarto.yml (docs/ output for gh-pages)\n\n\n\n\n\nudunits on Apple Silicon: K&R C function definitions rejected by Clang C17 default. Fixed with -std=gnu89 overlay.\nR segfault on library(sf) in nested nix-shell: R_LIBS_SITE ABI contamination from outer shell. Fixed with shellHook rebuilding paths from derivation closure.\nNOTE: Running Rscript default.R will overwrite the manual nix patches. Must re-apply after regeneration.\n\n\n\n\n\nOSM deep hierarchy (baronies, parishes, townlands) not yet implemented — giscoR covers NUTS0-3 only\nDashboard not yet rendered/deployed to gh-pages (needs quarto render in nix shell)\ngiscoR NUTS3 gives 8 Irish regions, not 32 traditional counties — may need GADM or OSM for true county level\nT language integration TBD (JohnGavin/maps#1)"
+  },
+  {
+    "objectID": "CURRENT_WORK.html",
+    "href": "CURRENT_WORK.html",
+    "title": "Current Work",
+    "section": "",
+    "text": "Package skeleton (DESCRIPTION, LICENSE, .gitignore)\ndefault.R + default.nix via rix (R 4.5.3)\nR/get_boundaries.R (giscoR NUTS levels)\nR/sea_distance.R (sf::st_touches + igraph BFS)\nTests pass: [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]\nNAMESPACE + man pages generated\nGitHub repo: https://github.com/JohnGavin/maps\nIssue #1: T language evaluation\nNix environment fixed (udunits overlay + shellHook)\nQuarto dashboard created (2-page leaflet + summary)\nindex.qmd + _quarto.yml\n\n\n\n\n\nRender dashboard: nix-shell default.nix --run \"quarto render\"\nDeploy docs/ to gh-pages\nImplement deeper OSM hierarchy (baronies, parishes) via osmdata\nInvestigate NUTS3 vs true 32 counties (GADM or OSM needed)\nResolve JohnGavin/maps#1 (T language decision)\n\n\n\n\n\n\n\nPackage\nPurpose\nStatus\n\n\n\n\nsf\nGeometry engine\nIn DESCRIPTION Imports, nix OK\n\n\ngiscoR\nNUTS/LAU boundaries\nIn DESCRIPTION Suggests, nix OK\n\n\nigraph\nBFS graph traversal\nIn DESCRIPTION Imports, nix OK\n\n\nosmdata\nDeep OSM hierarchy\nIn DESCRIPTION Suggests\n\n\nleaflet\nInteractive maps\nIn DESCRIPTION Suggests\n\n\ndplyr\nData wrangling\nIn DESCRIPTION Imports, nix OK\n\n\nquarto\nDashboard rendering\nIn default.R\n\n\n\n\n\n\n\nR/get_boundaries.R — fetch Ireland admin boundaries via giscoR (NUTS levels)\nR/sea_distance.R — adjacency graph via sf::st_touches + BFS via igraph\ntests/testthat/test-sea_distance.R — unit tests for distance computation\nvignettes/articles/dashboard.qmd — 2-page leaflet dashboard\nindex.qmd — site homepage\n_quarto.yml — website config (output to docs/)\n\n\n\n\n\nRunning Rscript default.R overwrites manual nix patches (udunits overlay + shellHook)\ngiscoR NUTS3 gives 8 Irish regions, not 32 counties — need GADM or OSM for true county boundaries"
+  },
+  {
+    "objectID": "CURRENT_WORK.html#completed",
+    "href": "CURRENT_WORK.html#completed",
+    "title": "Current Work",
+    "section": "",
+    "text": "Package skeleton (DESCRIPTION, LICENSE, .gitignore)\ndefault.R + default.nix via rix (R 4.5.3)\nR/get_boundaries.R (giscoR NUTS levels)\nR/sea_distance.R (sf::st_touches + igraph BFS)\nTests pass: [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]\nNAMESPACE + man pages generated\nGitHub repo: https://github.com/JohnGavin/maps\nIssue #1: T language evaluation\nNix environment fixed (udunits overlay + shellHook)\nQuarto dashboard created (2-page leaflet + summary)\nindex.qmd + _quarto.yml"
+  },
+  {
+    "objectID": "CURRENT_WORK.html#next-steps",
+    "href": "CURRENT_WORK.html#next-steps",
+    "title": "Current Work",
+    "section": "",
+    "text": "Render dashboard: nix-shell default.nix --run \"quarto render\"\nDeploy docs/ to gh-pages\nImplement deeper OSM hierarchy (baronies, parishes) via osmdata\nInvestigate NUTS3 vs true 32 counties (GADM or OSM needed)\nResolve JohnGavin/maps#1 (T language decision)"
+  },
+  {
+    "objectID": "CURRENT_WORK.html#r-package-versions-needed-ctx-tracking",
+    "href": "CURRENT_WORK.html#r-package-versions-needed-ctx-tracking",
+    "title": "Current Work",
+    "section": "",
+    "text": "Package\nPurpose\nStatus\n\n\n\n\nsf\nGeometry engine\nIn DESCRIPTION Imports, nix OK\n\n\ngiscoR\nNUTS/LAU boundaries\nIn DESCRIPTION Suggests, nix OK\n\n\nigraph\nBFS graph traversal\nIn DESCRIPTION Imports, nix OK\n\n\nosmdata\nDeep OSM hierarchy\nIn DESCRIPTION Suggests\n\n\nleaflet\nInteractive maps\nIn DESCRIPTION Suggests\n\n\ndplyr\nData wrangling\nIn DESCRIPTION Imports, nix OK\n\n\nquarto\nDashboard rendering\nIn default.R"
+  },
+  {
+    "objectID": "CURRENT_WORK.html#architecture",
+    "href": "CURRENT_WORK.html#architecture",
+    "title": "Current Work",
+    "section": "",
+    "text": "R/get_boundaries.R — fetch Ireland admin boundaries via giscoR (NUTS levels)\nR/sea_distance.R — adjacency graph via sf::st_touches + BFS via igraph\ntests/testthat/test-sea_distance.R — unit tests for distance computation\nvignettes/articles/dashboard.qmd — 2-page leaflet dashboard\nindex.qmd — site homepage\n_quarto.yml — website config (output to docs/)"
+  },
+  {
+    "objectID": "CURRENT_WORK.html#known-issues",
+    "href": "CURRENT_WORK.html#known-issues",
+    "title": "Current Work",
+    "section": "",
+    "text": "Running Rscript default.R overwrites manual nix patches (udunits overlay + shellHook)\ngiscoR NUTS3 gives 8 Irish regions, not 32 counties — need GADM or OSM for true county boundaries"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "maps",
+    "section": "",
+    "text": "The maps R package draws hierarchical administrative boundary maps for EU countries and computes sea-distance metrics via spatial adjacency graphs.\n\n\nIreland serves as the primary case study with its administrative hierarchy:\n\n\n\nLevel\nCount\nSource\n\n\n\n\nCountries (island)\n3\nIE, NI, island outline\n\n\nProvinces\n4\nConnacht, Leinster, Munster, Ulster\n\n\nCounties\n32\nTraditional counties\n\n\n\n\n\n\nCounties are classified by graph distance from the coast:\n\nDistance 0: Counties touching the sea\nDistance 1: Counties adjacent to a coastal county\nDistance 2: Counties two hops from the coast\n\nSee the Dashboard for interactive maps."
+  },
+  {
+    "objectID": "index.html#overview",
+    "href": "index.html#overview",
+    "title": "maps",
+    "section": "",
+    "text": "The maps R package draws hierarchical administrative boundary maps for EU countries and computes sea-distance metrics via spatial adjacency graphs.\n\n\nIreland serves as the primary case study with its administrative hierarchy:\n\n\n\nLevel\nCount\nSource\n\n\n\n\nCountries (island)\n3\nIE, NI, island outline\n\n\nProvinces\n4\nConnacht, Leinster, Munster, Ulster\n\n\nCounties\n32\nTraditional counties\n\n\n\n\n\n\nCounties are classified by graph distance from the coast:\n\nDistance 0: Counties touching the sea\nDistance 1: Counties adjacent to a coastal county\nDistance 2: Counties two hops from the coast\n\nSee the Dashboard for interactive maps."
+  },
+  {
+    "objectID": "index.html#installation",
+    "href": "index.html#installation",
+    "title": "maps",
+    "section": "Installation",
+    "text": "Installation\n# install.packages(\"pak\")\npak::pak(\"JohnGavin/maps\")"
+  },
+  {
+    "objectID": "index.html#links",
+    "href": "index.html#links",
+    "title": "maps",
+    "section": "Links",
+    "text": "Links\n\nGitHub\nIssue #1: T language evaluation"
+  }
+]
