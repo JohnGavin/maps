@@ -22,8 +22,8 @@ format:
     cap-location: top
 
 execute:
-  freeze: auto
-  cache: true
+  freeze: false
+  cache: false
 
 knitr:
   opts_chunk:
