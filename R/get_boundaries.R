@@ -11,10 +11,13 @@ get_ireland_boundaries <- function(level = c("country", "province", "county"),
                                    year = 2021) {
   level <- match.arg(level)
 
+  if (level == "county") {
+    return(get_ireland_32_counties())
+  }
+
   nuts_level <- switch(level,
     country  = 0L,
-    province = 1L,
-    county   = 3L
+    province = 1L
   )
 
   # GISCO NUTS regions for Ireland (IE) + UK Northern Ireland (UKN)
@@ -31,12 +34,67 @@ get_ireland_boundaries <- function(level = c("country", "province", "county"),
   } else if (nuts_level == 1L) {
     # IE0 = Ireland, UKN = Northern Ireland
     nuts <- nuts[nuts$NUTS_ID %in% c("IE0", "UKN"), ]
-  } else if (nuts_level == 3L) {
-    # All IE NUTS3 + UKN0 (Northern Ireland)
-    nuts <- nuts[grepl("^IE|^UKN", nuts$NUTS_ID), ]
   }
 
   nuts
+}
+
+#' Get All 32 Traditional Irish Counties
+#'
+#' Fetches 26 Republic of Ireland counties from GADM level 1 and
+#' 6 Northern Ireland traditional counties by dissolving GADM level 3
+#' district councils.
+#'
+#' @return An sf object with 32 rows and columns `county_name`, `country`,
+#'   `geometry`.
+#' @export
+get_ireland_32_counties <- function() {
+  # ROI: 26 counties from GADM IRL level 1
+  irl <- sf::st_read(
+    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_IRL_1.json",
+    quiet = TRUE
+  )
+  # GADM has NAME_1 = NA for Cork (HASC_1 = "IE.CK")
+  irl$county_name <- ifelse(
+    irl$HASC_1 == "IE.CK", "Cork", as.character(irl$NAME_1)
+  )
+  irl$country <- "Republic of Ireland"
+  irl <- irl[, c("county_name", "country", "geometry")]
+
+  # NI: dissolve 26 pre-2015 district councils -> 6 traditional counties
+  gbr3 <- sf::st_read(
+    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_3.json",
+    quiet = TRUE
+  )
+  ni3 <- gbr3[!is.na(gbr3$NAME_1) & gbr3$NAME_1 == "NorthernIreland", ]
+
+  ni_lookup <- c(
+    Antrim = "Antrim", Newtownabbey = "Antrim", Ballymena = "Antrim",
+    Ballymoney = "Antrim", Carrickfergus = "Antrim", Larne = "Antrim",
+    Moyle = "Antrim", Belfast = "Antrim",
+    Armagh = "Armagh", Banbridge = "Armagh", Craigavon = "Armagh",
+    Ards = "Down", NorthDown = "Down", Castlereagh = "Down",
+    Down = "Down", Lisburn = "Down", NewryandMourne = "Down",
+    Fermanagh = "Fermanagh",
+    Coleraine = "Londonderry", Derry = "Londonderry",
+    Limavady = "Londonderry", Magherafelt = "Londonderry",
+    Cookstown = "Tyrone", Dungannon = "Tyrone", Omagh = "Tyrone",
+    Strabane = "Tyrone"
+  )
+
+  ni3$county_name <- ni_lookup[ni3$NAME_3]
+  ni3 <- ni3[!is.na(ni3$county_name), ]
+
+  # Dissolve districts into 6 traditional counties
+  ni_counties <- stats::aggregate(
+    ni3["geometry"],
+    by = list(county_name = ni3$county_name),
+    FUN = function(x) sf::st_union(x)
+  )
+  ni_counties$country <- "Northern Ireland"
+  ni_counties <- ni_counties[, c("county_name", "country", "geometry")]
+
+  rbind(irl, ni_counties)
 }
 
 #' Get Ireland Coastline

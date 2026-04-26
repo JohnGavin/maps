@@ -5,7 +5,6 @@ format:
     orientation: pages
     scrolling: false
     theme: cosmo
-    css: ../../styles.css
 execute:
   echo: false
   message: false
@@ -19,19 +18,55 @@ execute:
 library(sf)
 library(leaflet)
 library(dplyr)
-library(giscoR)
 library(igraph)
 
 # ---- helpers (inline so the vignette is self-contained) ----------------------
 
-.get_ireland_boundaries <- function(year = 2021) {
-  nuts <- giscoR::gisco_get_nuts(
-    year = year,
-    resolution = "10",
-    nuts_level = 3L,
-    country = c("IE", "UK")
+.get_ireland_32_counties <- function() {
+  # ROI: 26 counties from GADM IRL level 1
+  irl <- sf::st_read(
+    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_IRL_1.json",
+    quiet = TRUE
   )
-  nuts[grepl("^IE|^UKN", nuts$NUTS_ID), ]
+  irl$county_name <- ifelse(
+    irl$HASC_1 == "IE.CK", "Cork", as.character(irl$NAME_1)
+  )
+  irl$country <- "Republic of Ireland"
+  irl <- irl[, c("county_name", "country", "geometry")]
+
+  # NI: dissolve 26 pre-2015 district councils -> 6 traditional counties
+  gbr3 <- sf::st_read(
+    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_3.json",
+    quiet = TRUE
+  )
+  ni3 <- gbr3[!is.na(gbr3$NAME_1) & gbr3$NAME_1 == "NorthernIreland", ]
+
+  ni_lookup <- c(
+    Antrim = "Antrim", Newtownabbey = "Antrim", Ballymena = "Antrim",
+    Ballymoney = "Antrim", Carrickfergus = "Antrim", Larne = "Antrim",
+    Moyle = "Antrim", Belfast = "Antrim",
+    Armagh = "Armagh", Banbridge = "Armagh", Craigavon = "Armagh",
+    Ards = "Down", NorthDown = "Down", Castlereagh = "Down",
+    Down = "Down", Lisburn = "Down", NewryandMourne = "Down",
+    Fermanagh = "Fermanagh",
+    Coleraine = "Londonderry", Derry = "Londonderry",
+    Limavady = "Londonderry", Magherafelt = "Londonderry",
+    Cookstown = "Tyrone", Dungannon = "Tyrone", Omagh = "Tyrone",
+    Strabane = "Tyrone"
+  )
+
+  ni3$county_name <- ni_lookup[ni3$NAME_3]
+  ni3 <- ni3[!is.na(ni3$county_name), ]
+
+  ni_counties <- stats::aggregate(
+    ni3["geometry"],
+    by = list(county_name = ni3$county_name),
+    FUN = function(x) sf::st_union(x)
+  )
+  ni_counties$country <- "Northern Ireland"
+  ni_counties <- ni_counties[, c("county_name", "country", "geometry")]
+
+  rbind(irl, ni_counties)
 }
 
 .get_coastline <- function(year = 2021) {
@@ -42,16 +77,16 @@ library(igraph)
   adj_matrix <- sf::st_touches(counties, sparse = FALSE) * 1L
   g <- igraph::graph_from_adjacency_matrix(adj_matrix, mode = "undirected",
                                            diag = FALSE)
-  coastal    <- lengths(sf::st_intersects(counties, coastline)) > 0
+  coastal     <- lengths(sf::st_intersects(counties, coastline)) > 0
   coastal_idx <- which(coastal)
-  n          <- nrow(counties)
-  dist       <- rep(NA_integer_, n)
+  n           <- nrow(counties)
+  dist        <- rep(NA_integer_, n)
 
   if (length(coastal_idx) > 0 && length(coastal_idx) < n) {
-    sp       <- igraph::distances(g, v = coastal_idx)
-    dist     <- as.integer(apply(sp, 2, min))
+    sp   <- igraph::distances(g, v = coastal_idx)
+    dist <- as.integer(apply(sp, 2, min))
   } else if (length(coastal_idx) == n) {
-    dist     <- rep(0L, n)
+    dist <- rep(0L, n)
   }
   counties$sea_distance <- dist
   counties
@@ -62,7 +97,7 @@ library(igraph)
 }
 
 # ---- fetch data ---------------------------------------------------------------
-counties  <- .get_ireland_boundaries()
+counties  <- .get_ireland_32_counties()
 coastline <- .get_coastline()
 counties  <- .compute_sea_distance(counties, coastline)
 summary_df <- .summarise_sea_distance(counties)
@@ -75,11 +110,11 @@ n_two_hop     <- sum(counties$sea_distance == 2L, na.rm = TRUE)
 max_distance  <- max(counties$sea_distance, na.rm = TRUE)
 pct_coastal   <- round(100 * n_coastal / n_counties, 1)
 
+coastal_names <- sort(counties$county_name[counties$sea_distance == 0L])
+inland_names  <- sort(counties$county_name[counties$sea_distance == max_distance])
+
 # ---- colour palette (viridis, colorblind-safe) --------------------------------
-dist_levels   <- sort(unique(counties$sea_distance))
-pal_viridis   <- c("0" = "#440154", "1" = "#31688e", "2" = "#35b779")
-# Extend automatically if max_distance > 2
-all_levels    <- as.character(seq_len(max_distance + 1L) - 1L)
+all_levels    <- as.character(seq(0L, max_distance))
 viridis_ramp  <- scales::viridis_pal(option = "D")(length(all_levels))
 names(viridis_ramp) <- all_levels
 
@@ -98,15 +133,16 @@ counties_wgs84 <- sf::st_transform(counties, crs = 4326)
 ```{r}
 #| label: fig-map
 #| fig-cap: !expr paste0(
-#|   "Interactive choropleth of Ireland's ", n_counties, " NUTS3 regions coloured by sea-distance — ",
-#|   "the minimum number of shared-boundary county-hops required to reach the coast ",
-#|   "(distance 0 = directly coastal, 1 = one hop inland, 2 = two hops inland). ",
-#|   "Colour scale follows the viridis palette (purple → teal → green) for ",
-#|   "colorblind accessibility; distance categories are labelled in the map legend. ",
-#|   "Of the ", n_counties, " regions shown, ", n_coastal, " (", pct_coastal, "%) ",
-#|   "touch the coast directly, reflecting Ireland's highly indented Atlantic and Irish Sea coastline. ",
-#|   "Click any region to see its NUTS3 name and sea-distance value. ",
-#|   "Source: GISCO NUTS 2021 (IE + UKN regions) fetched via the giscoR package."
+#|   "Interactive choropleth of Ireland's ", n_counties, " traditional counties coloured by sea-distance. ",
+#|   "Sea-distance is the minimum number of shared-boundary county-hops to reach the coast ",
+#|   "(distance 0 = directly coastal, 1 = one hop inland, etc.). ",
+#|   "Colour scale uses the viridis palette (purple to green) for colorblind accessibility. ",
+#|   "Of the ", n_counties, " counties, ", n_coastal, " (", pct_coastal, "%) touch the coast directly. ",
+#|   "The most inland counties (distance ", max_distance, ") are: ",
+#|   paste(inland_names, collapse = ", "), ". ",
+#|   "Click any county to see its name, jurisdiction (ROI/NI), and sea-distance value. ",
+#|   "Source: GADM 4.1 (26 ROI counties + 6 NI traditional counties via dissolve); ",
+#|   "coastline from GISCO 2021."
 #| )
 
 leaflet(data = counties_wgs84) |>
@@ -118,11 +154,11 @@ leaflet(data = counties_wgs84) |>
     weight      = 1,
     opacity     = 1,
     popup       = ~ paste0(
-      "<strong>", NUTS_NAME, "</strong><br>",
-      "NUTS ID: ", NUTS_ID, "<br>",
+      "<strong>", county_name, "</strong><br>",
+      country, "<br>",
       "Sea distance: ", sea_distance
     ),
-    label       = ~ paste0(NUTS_NAME, " (", sea_distance, ")")
+    label       = ~ paste0(county_name, " (", sea_distance, ")")
   ) |>
   leaflet::addLegend(
     position = "bottomright",
@@ -143,10 +179,10 @@ leaflet(data = counties_wgs84) |>
 knitr::kable(
   data.frame(
     Metric = c(
-      "Total NUTS3 regions",
+      "Total counties",
       "Coastal (distance 0)",
       "One hop inland (distance 1)",
-      "Two hops inland (distance 2)",
+      paste0(max_distance, " hops inland (distance ", max_distance, ")"),
       "Maximum sea distance",
       "% directly coastal"
     ),
@@ -162,33 +198,36 @@ knitr::kable(
   align = c("l", "r"),
   col.names = c("Metric", "Value"),
   caption = paste0(
-    "Summary statistics for Ireland's ", n_counties, " NUTS3 regions. ",
-    "Sea distance is computed via breadth-first search on a county-adjacency graph, ",
-    "where coastal counties (those intersecting the GISCO coastline geometry) are ",
-    "assigned distance 0 and each subsequent hop adds 1. ",
-    "The table highlights that ", pct_coastal, "% of regions touch the coast directly, ",
-    "consistent with Ireland's elongated and deeply indented coastline. ",
-    "Source: GISCO NUTS 2021 (giscoR), coastline from gisco_get_coastallines()."
+    "Summary statistics for Ireland's ", n_counties, " traditional counties. ",
+    "Sea distance is computed via breadth-first search on the county-adjacency graph. ",
+    "Coastal counties (those intersecting the GISCO coastline geometry) have distance 0; ",
+    "each subsequent hop adds 1. ",
+    pct_coastal, "% of counties touch the coast directly. ",
+    "Source: GADM 4.1 (ROI + NI); coastline from GISCO 2021."
   )
 )
 ```
 
 ### About the sea-distance metric
 
-Ireland has `r n_counties` NUTS3 regions. Sea distance measures how many
-county-boundaries separate a region from the nearest coastal region.
-Coastal regions (distance = 0) border the sea directly. Of these,
-`r n_one_hop` region(s) are one county-hop from the coast, and
-`r n_two_hop` region(s) are two hops inland.
+Ireland has `r n_counties` traditional counties (`r n_counties - 6L` in the
+Republic, 6 in Northern Ireland). Sea distance measures how many
+county-boundaries separate a county from the nearest coastal county.
 
-The maximum sea distance across the island is **`r max_distance`**,
-reflecting Ireland's compact geography relative to its coastline length.
+Of these, `r n_coastal` counties (`r pct_coastal`%) touch the coast directly.
+`r n_one_hop` county(ies) are one hop from the coast, and
+`r n_two_hop` county(ies) are `r max_distance` hops inland.
+
+The most inland counties are: **`r paste(inland_names, collapse = ", ")`**.
+The maximum sea distance is **`r max_distance`**, reflecting Ireland's
+compact geography relative to its extensive coastline.
 
 ---
 
-*Data: GISCO NUTS 2021 via [giscoR](https://ropengov.github.io/giscoR/).
-Adjacency computed with `sf::st_touches()`; BFS via
-[igraph](https://r.igraph.org/).*
+*Data: 26 ROI counties from [GADM 4.1](https://gadm.org/), 6 NI counties
+dissolved from GADM district councils. Coastline from
+[GISCO 2021](https://ec.europa.eu/eurostat/web/gisco). Adjacency via
+`sf::st_touches()`; BFS via [igraph](https://r.igraph.org/).*
 
 # Summary {orientation="columns"}
 
@@ -204,7 +243,6 @@ knitr::kable(
       label = dplyr::case_when(
         sea_distance == 0L ~ "Coastal (0 hops)",
         sea_distance == 1L ~ "One hop inland",
-        sea_distance == 2L ~ "Two hops inland",
         TRUE               ~ paste0(sea_distance, " hops inland")
       )
     ) |>
@@ -216,13 +254,13 @@ knitr::kable(
     ),
   align   = c("l", "r", "r"),
   caption = paste0(
-    "Distribution of Ireland's ", n_counties, " NUTS3 regions across sea-distance categories. ",
+    "Distribution of Ireland's ", n_counties, " counties across sea-distance categories. ",
     "Each row corresponds to one distance level (0 = coastal, 1 = one shared-boundary hop, etc.). ",
-    "'Share' is the row's count expressed as a percentage of all ", n_counties, " regions. ",
-    "The table shows that coastal and near-coastal regions dominate: ",
-    n_coastal + n_one_hop, " out of ", n_counties, " regions lie within one hop of the sea (",
+    "'Share' is the percentage of all ", n_counties, " counties at that distance. ",
+    "Coastal and near-coastal counties dominate: ",
+    n_coastal + n_one_hop, " out of ", n_counties, " lie within one hop of the sea (",
     round(100 * (n_coastal + n_one_hop) / n_counties, 1), "%). ",
-    "Source: GISCO NUTS 2021 fetched via giscoR; sea distance computed with igraph BFS."
+    "Source: GADM 4.1 (ROI + NI); sea distance via igraph BFS."
   )
 )
 ```
@@ -232,26 +270,25 @@ knitr::kable(
 ```{r}
 #| label: fig-bar
 #| fig-cap: !expr paste0(
-#|   "Bar chart showing the count of Ireland's ", n_counties, " NUTS3 regions at each sea-distance level. ",
+#|   "Bar chart showing the count of Ireland's ", n_counties, " traditional counties ",
+#|   "at each sea-distance level. ",
 #|   "The x-axis gives sea distance in county hops (0 = directly coastal); ",
-#|   "the y-axis gives the number of NUTS3 regions at that distance. ",
-#|   "Bars are coloured using the same viridis palette as the map on Page 1 to enable ",
-#|   "direct visual correspondence between the two views. ",
-#|   "The distribution is strongly right-skewed: ", n_coastal, " regions are coastal ",
-#|   "and counts fall rapidly with increasing inland distance, ",
-#|   "reflecting Ireland's elongated shape and the fact that no point on the island is ",
-#|   "more than ", max_distance, " county hops from the sea. ",
-#|   "Source: GISCO NUTS 2021 (giscoR); sea distance from igraph BFS."
+#|   "the y-axis gives the number of counties at that distance. ",
+#|   "Bars use the same viridis palette as the map for visual correspondence. ",
+#|   n_coastal, " counties are coastal and counts fall with increasing inland distance. ",
+#|   "No county is more than ", max_distance, " hops from the sea. ",
+#|   "Source: GADM 4.1 (ROI + NI); sea distance from igraph BFS."
 #| )
 
 barplot(
-  height   = summary_df$n,
-  names.arg = paste0(summary_df$sea_distance, "\nhop", ifelse(summary_df$sea_distance == 1L, "", "s")),
-  col      = viridis_ramp[as.character(summary_df$sea_distance)],
-  border   = NA,
-  xlab     = "Sea distance (county hops)",
-  ylab     = "Number of NUTS3 regions",
-  main     = paste0("Sea-Distance Distribution (N = ", n_counties, " regions)"),
-  las      = 1
+  height    = summary_df$n,
+  names.arg = paste0(summary_df$sea_distance, "\nhop",
+                     ifelse(summary_df$sea_distance == 1L, "", "s")),
+  col       = viridis_ramp[as.character(summary_df$sea_distance)],
+  border    = NA,
+  xlab      = "Sea distance (county hops)",
+  ylab      = "Number of counties",
+  main      = paste0("Sea-Distance Distribution (N = ", n_counties, " counties)"),
+  las       = 1
 )
 ```
