@@ -4,10 +4,14 @@
 \alias{compute_neighbour_table}
 \title{Compute County Neighbour Table}
 \usage{
-compute_neighbour_table(counties)
+compute_neighbour_table(counties, crs_projected = 3035L)
 }
 \arguments{
 \item{counties}{An sf object of county polygons with a \code{county_name} column.}
+
+\item{crs_projected}{Integer. EPSG code for a projected (metre-based) CRS
+used to build the 200 m adjacency buffer and measure boundary lengths.
+Default 3035L (ETRS89-LAEA), which covers all EU/UK countries.}
 }
 \value{
 A data.frame with columns:
@@ -25,7 +29,7 @@ For each county, compute the number of neighbours (counties sharing a
 boundary), their names, and the total shared boundary length in km.
 }
 \details{
-Adjacency is detected using a 200 m buffer in EPSG:2157 (Irish Transverse
-Mercator) to handle small coordinate gaps in GADM polygon boundaries that
-cause \code{sf::st_touches()} to miss shared edges.
+Adjacency is detected using a 200 m buffer in \code{crs_projected} to handle
+small coordinate gaps in GADM polygon boundaries that cause
+\code{sf::st_touches()} to miss shared edges.
 }

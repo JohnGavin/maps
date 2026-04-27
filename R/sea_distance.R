@@ -16,9 +16,9 @@
 #' ## Adjacency
 #'
 #' When `counties` has a geographic CRS (longitude/latitude or projected), the
-#' adjacency matrix is built using a 200 m buffer in EPSG:2157 (Irish Transverse
-#' Mercator) to handle the small coordinate gaps in GADM polygon boundaries that
-#' cause `sf::st_touches()` to miss many shared edges.  For CRS-less synthetic
+#' adjacency matrix is built using a 200 m buffer in `crs_projected` to handle
+#' the small coordinate gaps in GADM polygon boundaries that cause
+#' `sf::st_touches()` to miss many shared edges.  For CRS-less synthetic
 #' geometries (e.g. unit-square test data) `sf::st_touches()` is used directly.
 #'
 #' @param counties An sf object of county polygons (any CRS, or no CRS for
@@ -26,21 +26,24 @@
 #' @param coastline An sf object of coastlines — either LINESTRING/MULTILINESTRING
 #'   geometries, or POLYGON/MULTIPOLYGON land-mass geometries (e.g. from
 #'   `giscoR::gisco_get_coastallines()`).
+#' @param crs_projected Integer. EPSG code for a projected (metre-based) CRS
+#'   used to build the 200 m adjacency buffer. Default 3035L (ETRS89-LAEA),
+#'   which covers all EU/UK countries. Use 2157L for Ireland-only datasets.
 #' @return The input sf object with an added `sea_distance` integer column.
 #' @export
-compute_sea_distance <- function(counties, coastline) {
+compute_sea_distance <- function(counties, coastline, crs_projected = 3035L) {
   old_s2 <- sf::sf_use_s2()
   on.exit(sf::sf_use_s2(old_s2), add = TRUE)
   sf::sf_use_s2(FALSE)
 
   # ── Adjacency matrix ──────────────────────────────────────────────────────
   # st_touches() misses shared edges in GADM data due to tiny coordinate gaps.
-  # Use a 200 m buffer in ITM (EPSG:2157) when a geographic CRS is present.
+  # Use a 200 m buffer in crs_projected when a geographic CRS is present.
   # For CRS-less planar geometries (unit-test synthetic data), fall back to
   # st_touches() which works correctly for exact-boundary tile data.
   has_crs <- !is.na(sf::st_crs(counties))
   if (has_crs) {
-    counties_m  <- sf::st_transform(counties, 2157L)
+    counties_m  <- sf::st_transform(counties, crs_projected)
     counties_buf <- sf::st_buffer(counties_m, 200)
     nb_mat      <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
     diag(nb_mat) <- FALSE
@@ -116,11 +119,14 @@ summarise_sea_distance <- function(counties) {
 #' For each county, compute the number of neighbours (counties sharing a
 #' boundary), their names, and the total shared boundary length in km.
 #'
-#' Adjacency is detected using a 200 m buffer in EPSG:2157 (Irish Transverse
-#' Mercator) to handle small coordinate gaps in GADM polygon boundaries that
-#' cause `sf::st_touches()` to miss shared edges.
+#' Adjacency is detected using a 200 m buffer in `crs_projected` to handle
+#' small coordinate gaps in GADM polygon boundaries that cause
+#' `sf::st_touches()` to miss shared edges.
 #'
 #' @param counties An sf object of county polygons with a `county_name` column.
+#' @param crs_projected Integer. EPSG code for a projected (metre-based) CRS
+#'   used to build the 200 m adjacency buffer and measure boundary lengths.
+#'   Default 3035L (ETRS89-LAEA), which covers all EU/UK countries.
 #' @return A data.frame with columns:
 #'   \describe{
 #'     \item{county_name}{County name.}
@@ -131,7 +137,7 @@ summarise_sea_distance <- function(counties) {
 #'   Rows are ordered by decreasing `n_neighbours`, ties broken by decreasing
 #'   `boundary_length_km`.
 #' @export
-compute_neighbour_table <- function(counties) {
+compute_neighbour_table <- function(counties, crs_projected = 3035L) {
   stopifnot(
     "counties must be an sf object"           = inherits(counties, "sf"),
     "counties must have a county_name column" = "county_name" %in% names(counties)
@@ -141,7 +147,7 @@ compute_neighbour_table <- function(counties) {
   on.exit(sf::sf_use_s2(old_s2), add = TRUE)
   sf::sf_use_s2(FALSE)
 
-  counties_m <- sf::st_transform(counties, 2157L)
+  counties_m <- sf::st_transform(counties, crs_projected)
   n          <- nrow(counties_m)
 
   # Neighbour detection via 200 m buffer

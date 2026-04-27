@@ -4,7 +4,7 @@
 \alias{compute_sea_distance}
 \title{Compute Sea Distance for Counties}
 \usage{
-compute_sea_distance(counties, coastline)
+compute_sea_distance(counties, coastline, crs_projected = 3035L)
 }
 \arguments{
 \item{counties}{An sf object of county polygons (any CRS, or no CRS for
@@ -13,6 +13,10 @@ planar test data).}
 \item{coastline}{An sf object of coastlines — either LINESTRING/MULTILINESTRING
 geometries, or POLYGON/MULTIPOLYGON land-mass geometries (e.g. from
 \code{giscoR::gisco_get_coastallines()}).}
+
+\item{crs_projected}{Integer. EPSG code for a projected (metre-based) CRS
+used to build the 200 m adjacency buffer. Default 3035L (ETRS89-LAEA),
+which covers all EU/UK countries. Use 2157L for Ireland-only datasets.}
 }
 \value{
 The input sf object with an added \code{sea_distance} integer column.
@@ -36,9 +40,9 @@ when the raw polygon land-mass geometry spatially contains every county.
 \subsection{Adjacency}{
 
 When \code{counties} has a geographic CRS (longitude/latitude or projected), the
-adjacency matrix is built using a 200 m buffer in EPSG:2157 (Irish Transverse
-Mercator) to handle the small coordinate gaps in GADM polygon boundaries that
-cause \code{sf::st_touches()} to miss many shared edges.  For CRS-less synthetic
+adjacency matrix is built using a 200 m buffer in \code{crs_projected} to handle
+the small coordinate gaps in GADM polygon boundaries that cause
+\code{sf::st_touches()} to miss many shared edges.  For CRS-less synthetic
 geometries (e.g. unit-square test data) \code{sf::st_touches()} is used directly.
 }
 }

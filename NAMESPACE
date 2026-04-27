@@ -3,6 +3,7 @@
 export(compute_neighbour_table)
 export(compute_sea_distance)
 export(get_coastline)
+export(get_country_boundaries)
 export(get_ireland_32_counties)
 export(get_ireland_boundaries)
 export(summarise_sea_distance)

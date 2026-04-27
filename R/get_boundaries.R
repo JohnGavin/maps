@@ -1,3 +1,29 @@
+#' Get Country Administrative Boundaries from GADM
+#'
+#' Download administrative boundary polygons for any country using the
+#' GADM 4.1 database.
+#'
+#' @param iso3 Character. ISO 3166-1 alpha-3 country code (e.g. "IRL", "GBR", "FRA").
+#' @param level Integer. GADM administrative level (0=country, 1=regions,
+#'   2=districts, etc.).
+#' @param name_filter Character vector or NULL. If provided, filter to rows where
+#'   `name_col` matches one of these values.
+#' @param name_col Character. Column name to filter on. Default "NAME_1".
+#' @return An sf object with boundary polygons.
+#' @export
+get_country_boundaries <- function(iso3, level = 1L, name_filter = NULL,
+                                   name_col = "NAME_1") {
+  url <- sprintf(
+    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_%s_%d.json",
+    toupper(iso3), as.integer(level)
+  )
+  sf_data <- sf::st_read(url, quiet = TRUE)
+  if (!is.null(name_filter)) {
+    sf_data <- sf_data[sf_data[[name_col]] %in% name_filter, ]
+  }
+  sf_data
+}
+
 #' Get Ireland Administrative Boundaries
 #'
 #' Fetch hierarchical administrative boundaries for Ireland
@@ -50,10 +76,7 @@ get_ireland_boundaries <- function(level = c("country", "province", "county"),
 #' @export
 get_ireland_32_counties <- function() {
   # ROI: 26 counties from GADM IRL level 1
-  irl <- sf::st_read(
-    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_IRL_1.json",
-    quiet = TRUE
-  )
+  irl <- get_country_boundaries("IRL", level = 1L)
   # GADM has NAME_1 = NA for Cork (HASC_1 = "IE.CK")
   irl$county_name <- ifelse(
     irl$HASC_1 == "IE.CK", "Cork", as.character(irl$NAME_1)
@@ -62,10 +85,7 @@ get_ireland_32_counties <- function() {
   irl <- irl[, c("county_name", "country", "geometry")]
 
   # NI: dissolve 26 pre-2015 district councils -> 6 traditional counties
-  gbr3 <- sf::st_read(
-    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_3.json",
-    quiet = TRUE
-  )
+  gbr3 <- get_country_boundaries("GBR", level = 3L)
   ni3 <- gbr3[!is.na(gbr3$NAME_1) & gbr3$NAME_1 == "NorthernIreland", ]
 
   ni_lookup <- c(
