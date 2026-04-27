@@ -14,3 +14,23 @@ $navbar-fg: #ffffff;
 .navbar .nav-link:hover {
   color: #cce0ff !important;
 }
+
+/* Leaflet zoom controls visible on dark background */
+.leaflet-control-zoom a {
+  background-color: #333 !important;
+  color: #fff !important;
+  border-color: #555 !important;
+}
+.leaflet-control-zoom a:hover {
+  background-color: #555 !important;
+}
+
+/* Leaflet legend readable on dark background */
+.leaflet-control .legend,
+.info.legend {
+  background: rgba(30, 30, 30, 0.9) !important;
+  color: #fff !important;
+}
+.info.legend i {
+  border: 1px solid #555;
+}

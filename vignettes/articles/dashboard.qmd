@@ -1,5 +1,5 @@
 ---
-title: "Ireland County Sea-Distance Dashboard"
+title: "County Sea-Distance"
 format:
   dashboard:
     orientation: rows
@@ -212,21 +212,24 @@ cap_dot <- paste0(
   "Source: GADM 4.1 (ROI + NI); sea distance from igraph BFS."
 )
 
-# ---- colour palette (bright on black background) -----------------------------
-all_levels   <- as.character(seq(0L, max_distance))
-# Use plasma (bright yellow/orange/magenta) for contrast on black background
-viridis_ramp <- scales::viridis_pal(option = "C")(length(all_levels))
-names(viridis_ramp) <- all_levels
+# ---- colour palette (high-contrast on black DarkMatter tiles) ----------------
+# Yellow → orange → red: bright on black, colorblind-distinguishable
+dist_palette <- c("0" = "#fee090", "1" = "#fc8d59", "2" = "#d73027")
+# Extend if max_distance > 2
+if (max_distance > 2L) {
+  extra <- scales::viridis_pal(option = "C")(max_distance - 2L)
+  for (d in 3:max_distance) dist_palette[as.character(d)] <- extra[d - 2L]
+}
 
 pal_fn <- leaflet::colorFactor(
-  palette = viridis_ramp,
-  domain  = as.character(counties$sea_distance)
+  palette = unname(dist_palette[as.character(0:max_distance)]),
+  domain  = 0:max_distance
 )
 
 counties_wgs84 <- sf::st_transform(counties, crs = 4326)
 ```
 
-# Ireland Map {orientation="columns"}
+# Ireland {orientation="columns"}
 
 ## Column {width="70%"}
 
@@ -237,10 +240,10 @@ counties_wgs84 <- sf::st_transform(counties, crs = 4326)
 leaflet(data = counties_wgs84, height = "600px") |>
   leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
   leaflet::addPolygons(
-    fillColor   = ~ pal_fn(as.character(sea_distance)),
-    fillOpacity = 0.75,
-    color       = "#ffffff",
-    weight      = 1,
+    fillColor   = ~ pal_fn(sea_distance),
+    fillOpacity = 0.8,
+    color       = "#333333",
+    weight      = 1.5,
     opacity     = 1,
     popup       = ~ paste0(
       "<strong>", county_name, "</strong><br>",
@@ -252,9 +255,10 @@ leaflet(data = counties_wgs84, height = "600px") |>
   leaflet::addLegend(
     position = "bottomright",
     pal      = pal_fn,
-    values   = ~ as.character(sea_distance),
+    values   = ~ sea_distance,
     title    = "Sea distance<br>(county hops)",
-    opacity  = 0.85
+    opacity  = 1,
+    labFormat = leaflet::labelFormat(prefix = "Distance ")
   )
 ```
 
@@ -322,7 +326,7 @@ The most inland counties (distance `r max_distance`) are:
 *Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
 Adjacency via `sf::st_touches()` with 200m buffer; BFS via [igraph](https://r.igraph.org/).*
 
-# Summary {orientation="columns"}
+# Details {orientation="columns"}
 
 ## Column {width="50%"}
 
@@ -367,7 +371,7 @@ dotchart(
   labels = rev(paste0("Distance ", summary_df$sea_distance)),
   pch    = 19,
   pt.cex = 2.5,
-  color  = rev(viridis_ramp[as.character(summary_df$sea_distance)]),
+  color  = rev(dist_palette[as.character(summary_df$sea_distance)]),
   xlab   = "Number of counties",
   main   = paste0("Sea-Distance Distribution (N = ", n_counties, ")"),
   lcolor = "grey40"
