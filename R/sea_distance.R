@@ -92,9 +92,22 @@ compute_sea_distance <- function(counties, coastline, crs_projected = 3035L) {
   if (length(coastal_idx) > 0 && length(coastal_idx) < n) {
     sp       <- igraph::distances(g, v = coastal_idx)
     min_dist <- apply(sp, 2, min)
+    # Islands disconnected from the mainland graph get Inf distance.
+    # If they intersect the coastline they are coastal (distance 0).
+    # as.integer(Inf) produces NA, so replace Inf before conversion.
+    min_dist[is.infinite(min_dist) & coastal] <- 0
     dist     <- as.integer(min_dist)
   } else if (length(coastal_idx) == n) {
     dist <- rep(0L, n)
+  }
+
+  # Validate: no NA in output (catches disconnected non-coastal regions)
+  if (any(is.na(dist))) {
+    na_idx <- which(is.na(dist))
+    rlang::warn(c(
+      "!" = paste0(length(na_idx), " counties have NA sea_distance (disconnected from mainland graph)"),
+      "i" = "These may be islands not intersecting the coastline geometry"
+    ))
   }
 
   counties$sea_distance <- dist

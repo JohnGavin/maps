@@ -4,15 +4,13 @@ project:
 
 website:
   title: "maps"
-  description: "Hierarchical geographic maps with sea-distance analysis for Ireland"
+  description: "Hierarchical geographic maps with sea-distance analysis"
   navbar:
     left:
       - href: index.qmd
         text: Home
       - href: vignettes/articles/dashboard.qmd
         text: Dashboard
-      - href: vignettes/articles/uk_dashboard.qmd
-        text: UK Dashboard
   sidebar: false
 
 format:

@@ -69,14 +69,14 @@ library(igraph)
   rbind(irl, ni_counties)
 }
 
-.compute_sea_distance <- function(counties, coastline) {
+.compute_sea_distance <- function(counties, coastline, crs_projected = 27700L) {
   old_s2 <- sf::sf_use_s2()
   on.exit(sf::sf_use_s2(old_s2), add = TRUE)
   sf::sf_use_s2(FALSE)
 
   has_crs <- !is.na(sf::st_crs(counties))
   if (has_crs) {
-    counties_m   <- sf::st_transform(counties, 2157L)
+    counties_m   <- sf::st_transform(counties, crs_projected)
     counties_buf <- sf::st_buffer(counties_m, 200)
     nb_mat       <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
     diag(nb_mat) <- FALSE
@@ -105,27 +105,32 @@ library(igraph)
   coastal     <- lengths(sf::st_intersects(counties, coastline_use)) > 0
   coastal_idx <- which(coastal)
 
-  n    <- nrow(counties)
-  dist <- rep(NA_integer_, n)
-  dist[coastal_idx] <- 0L
+  n         <- nrow(counties)
+  min_dist  <- rep(Inf, n)
 
   if (length(coastal_idx) > 0 && length(coastal_idx) < n) {
-    sp   <- igraph::distances(g, v = coastal_idx)
-    dist <- as.integer(apply(sp, 2, min))
+    sp       <- igraph::distances(g, v = coastal_idx)
+    min_dist <- apply(sp, 2, min)
   } else if (length(coastal_idx) == n) {
-    dist <- rep(0L, n)
+    min_dist <- rep(0, n)
   }
+
+  # Island fix: counties that are coastal but appear disconnected get Inf
+  # from the BFS (island counties have no land neighbours).
+  # Reset any Inf that belongs to a directly-coastal county to 0.
+  min_dist[is.infinite(min_dist) & coastal] <- 0
+  dist <- as.integer(min_dist)
 
   counties$sea_distance <- dist
   counties
 }
 
-.compute_neighbour_table <- function(counties) {
+.compute_neighbour_table <- function(counties, crs_projected = 27700L) {
   old_s2 <- sf::sf_use_s2()
   on.exit(sf::sf_use_s2(old_s2), add = TRUE)
   sf::sf_use_s2(FALSE)
 
-  counties_m <- sf::st_transform(counties, 2157L)
+  counties_m <- sf::st_transform(counties, crs_projected)
   n <- nrow(counties_m)
 
   counties_buf <- sf::st_buffer(counties_m, 200)
@@ -162,103 +167,256 @@ library(igraph)
   dplyr::count(sf::st_drop_geometry(counties), .data$sea_distance, name = "n")
 }
 
-# ---- fetch data ---------------------------------------------------------------
-counties   <- .get_ireland_32_counties()
-coastline  <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03")
-counties   <- .compute_sea_distance(counties, coastline)
-summary_df <- .summarise_sea_distance(counties)
-nb_table   <- .compute_neighbour_table(counties)
+# ---- render helpers ----------------------------------------------------------
 
-# ---- derived values for dynamic prose ----------------------------------------
-n_counties    <- nrow(counties)
-n_coastal     <- sum(counties$sea_distance == 0L, na.rm = TRUE)
-n_inland      <- n_counties - n_coastal
-max_distance  <- max(counties$sea_distance, na.rm = TRUE)
-pct_coastal   <- round(100 * n_coastal / n_counties, 1)
-
-coastal_names <- sort(counties$county_name[counties$sea_distance == 0L])
-inland_names  <- sort(counties$county_name[counties$sea_distance > 0L])
-deepest_names <- sort(counties$county_name[counties$sea_distance == max_distance])
-
-dist_counts <- setNames(
-  vapply(0:max_distance, function(d) sum(counties$sea_distance == d, na.rm = TRUE), integer(1)),
-  paste0("d", 0:max_distance)
-)
-
-# ---- source links for captions -----------------------------------------------
-gadm_link <- "[GADM 4.1](https://gadm.org/data.html)"
-gisco_link <- "[GISCO 2016](https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units)"
-igraph_link <- "[igraph](https://r.igraph.org/)"
-sf_link <- "[sf](https://r-spatial.github.io/sf/)"
-
-# ---- pre-computed captions ---------------------------------------------------
-cap_map <- paste0(
-  "Interactive choropleth of Ireland's ", n_counties, " traditional counties coloured by sea-distance. ",
-  "Sea-distance is the minimum number of shared-boundary county-hops to reach the coast ",
-  "(distance 0 = directly coastal, 1 = one hop inland, etc.). ",
-  "Of the ", n_counties, " counties, ", n_coastal, " (", pct_coastal, "%) touch the coast directly ",
-  "and ", n_inland, " are inland. ",
-  "The most inland county (distance ", max_distance, ") is ", paste(deepest_names, collapse = " and "), ". ",
-  "Click any county for details. ",
-  "Source: ", gadm_link, " + ", gisco_link, " coastline."
-)
-
-cap_dot <- paste0(
-  "Dot plot showing the count of Ireland's ", n_counties, " traditional counties ",
-  "at each sea-distance level. ",
-  "The x-axis gives the number of counties; ",
-  "the y-axis gives sea distance in county hops (0 = directly coastal). ",
-  n_coastal, " counties are coastal (distance 0); ",
-  "the most inland (distance ", max_distance, ") is ", paste(deepest_names, collapse = " and "), ". ",
-  "Source: ", gadm_link, "; sea distance via ", igraph_link, " BFS."
-)
-
-# ---- colour palette (high-contrast on black DarkMatter tiles) ----------------
-dist_palette <- c("0" = "#fee090", "1" = "#fc8d59", "2" = "#d73027")
-if (max_distance > 2L) {
-  extra <- scales::viridis_pal(option = "C")(max_distance - 2L)
-  for (d in 3:max_distance) dist_palette[as.character(d)] <- extra[d - 2L]
+.build_palette <- function(max_dist) {
+  pal <- c("0" = "#fee090", "1" = "#fc8d59", "2" = "#d73027")
+  if (max_dist > 2L) {
+    extra <- scales::viridis_pal(option = "C")(max_dist - 2L)
+    for (d in seq(3L, max_dist)) pal[as.character(d)] <- extra[d - 2L]
+  }
+  pal
 }
 
-pal_fn <- leaflet::colorFactor(
-  palette = unname(dist_palette[as.character(0:max_distance)]),
-  domain  = 0:max_distance
+.render_map <- function(counties_wgs84, pal_fn) {
+  leaflet(data = counties_wgs84, height = "550px") |>
+    leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
+    leaflet::addPolygons(
+      fillColor   = ~ pal_fn(sea_distance),
+      fillOpacity = 0.8,
+      color       = "#333333",
+      weight      = 1.5,
+      opacity     = 1,
+      popup       = ~ paste0(
+        "<strong>", county_name, "</strong><br>",
+        country, "<br>",
+        "Sea distance: ", sea_distance
+      ),
+      label       = ~ paste0(county_name, " (", sea_distance, ")")
+    ) |>
+    leaflet::addLegend(
+      position  = "bottomleft",
+      pal       = pal_fn,
+      values    = ~ sea_distance,
+      title     = "Sea distance",
+      opacity   = 1,
+      labFormat = leaflet::labelFormat(prefix = "Distance ")
+    )
+}
+
+.render_key_stats <- function(r) {
+  stats_df <- data.frame(
+    Metric = c(
+      "Total counties",
+      "Coastal (distance 0)",
+      paste0("Distance ", seq_len(r$max_distance),
+             " (", seq_len(r$max_distance), " hop",
+             ifelse(seq_len(r$max_distance) == 1L, "", "s"), ")"),
+      "Maximum sea distance",
+      "% directly coastal"
+    ),
+    Value = c(
+      as.character(r$n_counties),
+      as.character(r$dist_counts["d0"]),
+      vapply(seq_len(r$max_distance),
+             function(d) as.character(r$dist_counts[paste0("d", d)]),
+             character(1L)),
+      as.character(r$max_distance),
+      paste0(r$pct_coastal, "%")
+    )
+  )
+  knitr::kable(
+    stats_df,
+    align     = c("l", "r"),
+    col.names = c("Metric", "Value"),
+    caption   = paste0(
+      "Summary statistics for ", r$label_long, ". ",
+      r$n_coastal, " coastal, ", r$n_inland, " inland; ",
+      paste(r$deepest_names, collapse = " and "),
+      " is the most inland (distance ", r$max_distance, "). ",
+      "Source: ", r$gadm_link, " + ", r$gisco_link, "."
+    )
+  )
+}
+
+.render_summary_table <- function(r) {
+  knitr::kable(
+    r$summary |>
+      dplyr::mutate(
+        pct   = round(100 * n / sum(n), 1),
+        label = dplyr::case_when(
+          sea_distance == 0L ~ "Coastal (0 hops)",
+          sea_distance == 1L ~ "1 hop inland",
+          TRUE               ~ paste0(sea_distance, " hops inland")
+        )
+      ) |>
+      dplyr::select(label, n, pct) |>
+      dplyr::rename("Sea distance" = label, "Count" = n, "Share (%)" = pct),
+    align   = c("l", "r", "r"),
+    caption = paste0(
+      "Distribution of ", r$label_long, " across sea-distance categories. ",
+      r$n_coastal, " are coastal, ", r$n_inland, " are inland. ",
+      paste(r$deepest_names, collapse = " and "),
+      " is the only distance-", r$max_distance, " unit. ",
+      "Source: ", r$gadm_link, " + ", r$gisco_link,
+      "; sea distance via ", r$igraph_link, " BFS."
+    )
+  )
+}
+
+.render_dot_plot <- function(r) {
+  par(mar = c(4, 8, 2, 1), bg = "black", fg = "white",
+      col.axis = "white", col.lab = "white", col.main = "white")
+  dotchart(
+    x      = rev(r$summary$n),
+    labels = rev(paste0("Distance ", r$summary$sea_distance)),
+    pch    = 19,
+    pt.cex = 2.5,
+    color  = rev(r$dist_palette[as.character(r$summary$sea_distance)]),
+    xlab   = paste0("Number of ", r$unit_label, "s"),
+    main   = paste0("Sea-Distance Distribution (N = ", r$n_counties, ")"),
+    lcolor = "grey40"
+  )
+  grid(col = "grey30", lty = 1)
+}
+
+.render_neighbour_table <- function(r) {
+  knitr::kable(
+    r$nb_table |>
+      dplyr::select(county_name, n_neighbours, boundary_length_km, neighbour_names) |>
+      dplyr::rename(
+        "County"           = county_name,
+        "Neighbours"       = n_neighbours,
+        "Boundary (km)"    = boundary_length_km,
+        "Neighbour names"  = neighbour_names
+      ),
+    align   = c("l", "r", "r", "l"),
+    caption = paste0(
+      "All ", r$n_counties, " ", r$label_long,
+      " ordered by decreasing number of neighbours, ",
+      "ties broken by decreasing shared boundary length (km). ",
+      "Computed in EPSG:", r$crs_projected, ". ",
+      "Source: ", r$gadm_link, " polygons; adjacency via ", r$sf_link, "."
+    )
+  )
+}
+
+# ---- source links for captions -----------------------------------------------
+gadm_link   <- "[GADM 4.1](https://gadm.org/data.html)"
+gisco_link  <- "[GISCO 2016](https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units)"
+igraph_link <- "[igraph](https://r.igraph.org/)"
+sf_link     <- "[sf](https://r-spatial.github.io/sf/)"
+
+# ---- fetch base data ---------------------------------------------------------
+coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03")
+
+ireland_counties_raw <- .get_ireland_32_counties()
+
+gbr2 <- sf::st_read(
+  "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_2.json",
+  quiet = TRUE
+)
+england_raw  <- gbr2[gbr2$NAME_1 == "England",  ]
+scotland_raw <- gbr2[gbr2$NAME_1 == "Scotland", ]
+wales_raw    <- gbr2[gbr2$NAME_1 == "Wales",    ]
+
+for (obj_name in c("england_raw", "scotland_raw", "wales_raw")) {
+  obj <- get(obj_name)
+  obj$county_name <- as.character(obj$NAME_2)
+  obj$country     <- as.character(obj$NAME_1)
+  assign(obj_name, obj[, c("county_name", "country", "geometry")])
+}
+
+# ---- precompute all regions --------------------------------------------------
+regions <- list()
+
+region_specs <- list(
+  Ireland  = list(raw = ireland_counties_raw,  crs = 2157L,  label_long = "Ireland's 32 traditional counties",  unit_label = "county"),
+  England  = list(raw = england_raw,           crs = 27700L, label_long = "England's counties",                 unit_label = "county"),
+  Scotland = list(raw = scotland_raw,          crs = 27700L, label_long = "Scotland's council areas",           unit_label = "council area"),
+  Wales    = list(raw = wales_raw,             crs = 27700L, label_long = "Wales's counties",                   unit_label = "county")
 )
 
-counties_wgs84 <- sf::st_transform(counties, crs = 4326)
-```
+for (rname in names(region_specs)) {
+  spec      <- region_specs[[rname]]
+  counties  <- .compute_sea_distance(spec$raw, coastline, crs_projected = spec$crs)
+  stopifnot(!any(is.na(counties$sea_distance)))
+  stopifnot(!any(is.na(counties$county_name)))
 
-# Ireland {orientation="columns"}
+  summary_df  <- .summarise_sea_distance(counties)
+  nb_table    <- .compute_neighbour_table(counties, crs_projected = spec$crs)
 
-## Column {width="65%"}
+  n_counties   <- nrow(counties)
+  n_coastal    <- sum(counties$sea_distance == 0L, na.rm = TRUE)
+  n_inland     <- n_counties - n_coastal
+  max_distance <- max(counties$sea_distance, na.rm = TRUE)
+  pct_coastal  <- round(100 * n_coastal / n_counties, 1)
+  deepest_names <- sort(counties$county_name[counties$sea_distance == max_distance])
 
-```{r}
-#| label: fig-map
-#| fig-cap: !expr cap_map
-
-leaflet(data = counties_wgs84, height = "600px") |>
-  leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
-  leaflet::addPolygons(
-    fillColor   = ~ pal_fn(sea_distance),
-    fillOpacity = 0.8,
-    color       = "#333333",
-    weight      = 1.5,
-    opacity     = 1,
-    popup       = ~ paste0(
-      "<strong>", county_name, "</strong><br>",
-      country, "<br>",
-      "Sea distance: ", sea_distance
-    ),
-    label       = ~ paste0(county_name, " (", sea_distance, ")")
-  ) |>
-  leaflet::addLegend(
-    position = "bottomleft",
-    pal      = pal_fn,
-    values   = ~ sea_distance,
-    title    = "Sea distance",
-    opacity  = 1,
-    labFormat = leaflet::labelFormat(prefix = "Distance ")
+  dist_counts <- setNames(
+    vapply(0:max_distance,
+           function(d) sum(counties$sea_distance == d, na.rm = TRUE),
+           integer(1L)),
+    paste0("d", 0:max_distance)
   )
+
+  dist_palette <- .build_palette(max_distance)
+
+  pal_fn <- leaflet::colorFactor(
+    palette = unname(dist_palette[as.character(0:max_distance)]),
+    domain  = 0:max_distance
+  )
+
+  counties_wgs84 <- sf::st_transform(counties, crs = 4326L)
+
+  cap_map <- paste0(
+    "Interactive choropleth of ", spec$label_long, " coloured by sea-distance. ",
+    "Sea-distance is the minimum number of shared-boundary hops to reach the coast ",
+    "(distance 0 = directly coastal, 1 = one hop inland, etc.). ",
+    "Of the ", n_counties, " ", spec$unit_label, "s, ",
+    n_coastal, " (", pct_coastal, "%) touch the coast directly ",
+    "and ", n_inland, " are inland. ",
+    "The most inland (distance ", max_distance, ") is ",
+    paste(deepest_names, collapse = " and "), ". ",
+    "Click any area for details. ",
+    "Source: ", gadm_link, " + ", gisco_link, " coastline."
+  )
+
+  cap_dot <- paste0(
+    "Dot plot showing the count of ", spec$label_long, " at each sea-distance level. ",
+    "The x-axis gives the number of ", spec$unit_label, "s; ",
+    "the y-axis gives sea distance in hops (0 = directly coastal). ",
+    n_coastal, " are coastal (distance 0); ",
+    "the most inland (distance ", max_distance, ") is ",
+    paste(deepest_names, collapse = " and "), ". ",
+    "Source: ", gadm_link, "; sea distance via ", igraph_link, " BFS."
+  )
+
+  regions[[rname]] <- list(
+    counties      = counties,
+    counties_wgs84 = counties_wgs84,
+    summary       = summary_df,
+    nb_table      = nb_table,
+    n_counties    = n_counties,
+    n_coastal     = n_coastal,
+    n_inland      = n_inland,
+    max_distance  = max_distance,
+    pct_coastal   = pct_coastal,
+    deepest_names = deepest_names,
+    dist_counts   = dist_counts,
+    dist_palette  = dist_palette,
+    pal_fn        = pal_fn,
+    cap_map       = cap_map,
+    cap_dot       = cap_dot,
+    crs_projected = spec$crs,
+    label_long    = spec$label_long,
+    unit_label    = spec$unit_label,
+    gadm_link     = gadm_link,
+    gisco_link    = gisco_link,
+    igraph_link   = igraph_link,
+    sf_link       = sf_link
+  )
+}
 ```
 
 ```{=html}
@@ -275,129 +433,276 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 ```
 
-## Column {width="35%"}
-
-### Key figures
-
-```{r}
-#| label: tbl-key-stats
-
-stats_df <- data.frame(
-  Metric = c(
-    "Total counties",
-    paste0("Coastal (distance 0)"),
-    paste0("Distance ", seq_len(max_distance), " (", seq_len(max_distance), " hop", ifelse(seq_len(max_distance) == 1, "", "s"), ")"),
-    "Maximum sea distance",
-    "% directly coastal"
-  ),
-  Value = c(
-    as.character(n_counties),
-    as.character(dist_counts["d0"]),
-    vapply(seq_len(max_distance), function(d) as.character(dist_counts[paste0("d", d)]), character(1)),
-    as.character(max_distance),
-    paste0(pct_coastal, "%")
-  )
-)
-knitr::kable(stats_df, align = c("l", "r"), col.names = c("Metric", "Value"),
-  caption = paste0(
-    "Summary statistics for Ireland's ", n_counties, " traditional counties. ",
-    n_coastal, " coastal, ", n_inland, " inland; ",
-    paste(deepest_names, collapse = " and "), " is the most inland (distance ", max_distance, "). ",
-    "Source: ", gadm_link, " + ", gisco_link, "."
-  )
-)
-```
-
-### About
-
-Ireland has `r n_counties` traditional counties (`r n_counties - 6L` in the
-Republic, 6 in Northern Ireland). Of these, `r n_coastal` (`r pct_coastal`%)
-touch the coast directly and `r n_inland` are inland.
-
-The most inland county (distance `r max_distance`) is
-**`r paste(deepest_names, collapse = ", ")`**.
-
----
-
-*Data: [`r gadm_link`](https://gadm.org/) + [`r gisco_link`](https://ec.europa.eu/eurostat/web/gisco).
-Adjacency via [`r sf_link`](https://r-spatial.github.io/sf/) with 200m buffer;
-BFS via [`r igraph_link`](https://r.igraph.org/).*
-
-# Details {orientation="rows"}
-
-## Row {height="45%"}
-
-### Sea-Distance Distribution
-
-```{r}
-#| label: tbl-summary
-
-knitr::kable(
-  summary_df |>
-    dplyr::mutate(
-      pct = round(100 * n / sum(n), 1),
-      label = dplyr::case_when(
-        sea_distance == 0L ~ "Coastal (0 hops)",
-        sea_distance == 1L ~ "1 hop inland",
-        TRUE               ~ paste0(sea_distance, " hops inland")
-      )
-    ) |>
-    dplyr::select(label, n, pct) |>
-    dplyr::rename("Sea distance" = label, "Count" = n, "Share (%)" = pct),
-  align = c("l", "r", "r"),
-  caption = paste0(
-    "Distribution of Ireland's ", n_counties, " counties across sea-distance categories. ",
-    n_coastal, " are coastal, ", n_inland, " are inland. ",
-    paste(deepest_names, collapse = " and "), " is the only distance-", max_distance, " county. ",
-    "Source: ", gadm_link, " + ", gisco_link, "; sea distance via ", igraph_link, " BFS."
-  )
-)
-```
-
-### Sea-Distance Dot Plot
-
-```{r}
-#| label: fig-dot
-#| fig-cap: !expr cap_dot
-#| fig-height: 3
-
-par(mar = c(4, 8, 2, 1), bg = "black", fg = "white",
-    col.axis = "white", col.lab = "white", col.main = "white")
-dotchart(
-  x      = rev(summary_df$n),
-  labels = rev(paste0("Distance ", summary_df$sea_distance)),
-  pch    = 19,
-  pt.cex = 2.5,
-  color  = rev(dist_palette[as.character(summary_df$sea_distance)]),
-  xlab   = "Number of counties",
-  main   = paste0("Sea-Distance Distribution (N = ", n_counties, ")"),
-  lcolor = "grey40"
-)
-grid(col = "grey30", lty = 1)
-```
+# Ireland
 
 ## Row {height="55%"}
 
-### County Neighbours {.full-width}
+### {width="65%"}
 
 ```{r}
-#| label: tbl-neighbours
+#| label: fig-map-ireland
+#| fig-cap: !expr regions[["Ireland"]]$cap_map
 
-knitr::kable(
-  nb_table |>
-    dplyr::select(county_name, n_neighbours, boundary_length_km, neighbour_names) |>
-    dplyr::rename(
-      "County" = county_name,
-      "Neighbours" = n_neighbours,
-      "Boundary (km)" = boundary_length_km,
-      "Neighbour names" = neighbour_names
-    ),
-  align = c("l", "r", "r", "l"),
-  caption = paste0(
-    "All ", n_counties, " Irish counties ordered by decreasing number of neighbours, ",
-    "ties broken by decreasing shared boundary length (km). ",
-    "Computed in EPSG:2157 (Irish Transverse Mercator). ",
-    "Source: ", gadm_link, " polygons; adjacency via ", sf_link, "."
-  )
-)
+.render_map(regions[["Ireland"]]$counties_wgs84, regions[["Ireland"]]$pal_fn)
+```
+
+### {width="35%"}
+
+#### Key figures
+
+```{r}
+#| label: tbl-key-stats-ireland
+
+.render_key_stats(regions[["Ireland"]])
+```
+
+#### About
+
+Ireland has `r regions[["Ireland"]]$n_counties` traditional counties
+(`r regions[["Ireland"]]$n_counties - 6L` in the Republic, 6 in Northern
+Ireland). Of these, `r regions[["Ireland"]]$n_coastal`
+(`r regions[["Ireland"]]$pct_coastal`%) touch the coast directly and
+`r regions[["Ireland"]]$n_inland` are inland.
+
+The most inland county (distance `r regions[["Ireland"]]$max_distance`) is
+**`r paste(regions[["Ireland"]]$deepest_names, collapse = ", ")`**.
+
+---
+
+*Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
+Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:2157;
+BFS via [igraph](https://r.igraph.org/).*
+
+## Row {height="45%"}
+
+### {width="40%"}
+
+#### Sea-Distance Distribution
+
+```{r}
+#| label: tbl-summary-ireland
+
+.render_summary_table(regions[["Ireland"]])
+```
+
+#### Sea-Distance Dot Plot
+
+```{r}
+#| label: fig-dot-ireland
+#| fig-cap: !expr regions[["Ireland"]]$cap_dot
+#| fig-height: 2
+
+.render_dot_plot(regions[["Ireland"]])
+```
+
+### County Neighbours {width="60%" .full-width}
+
+```{r}
+#| label: tbl-neighbours-ireland
+
+.render_neighbour_table(regions[["Ireland"]])
+```
+
+# England
+
+## Row {height="55%"}
+
+### {width="65%"}
+
+```{r}
+#| label: fig-map-england
+#| fig-cap: !expr regions[["England"]]$cap_map
+
+.render_map(regions[["England"]]$counties_wgs84, regions[["England"]]$pal_fn)
+```
+
+### {width="35%"}
+
+#### Key figures
+
+```{r}
+#| label: tbl-key-stats-england
+
+.render_key_stats(regions[["England"]])
+```
+
+#### About
+
+England has `r regions[["England"]]$n_counties` counties. Of these,
+`r regions[["England"]]$n_coastal` (`r regions[["England"]]$pct_coastal`%)
+touch the coast directly and `r regions[["England"]]$n_inland` are inland.
+
+The most inland county (distance `r regions[["England"]]$max_distance`) is
+**`r paste(regions[["England"]]$deepest_names, collapse = ", ")`**.
+
+---
+
+*Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
+Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
+BFS via [igraph](https://r.igraph.org/).*
+
+## Row {height="45%"}
+
+### {width="40%"}
+
+#### Sea-Distance Distribution
+
+```{r}
+#| label: tbl-summary-england
+
+.render_summary_table(regions[["England"]])
+```
+
+#### Sea-Distance Dot Plot
+
+```{r}
+#| label: fig-dot-england
+#| fig-cap: !expr regions[["England"]]$cap_dot
+#| fig-height: 2
+
+.render_dot_plot(regions[["England"]])
+```
+
+### County Neighbours {width="60%" .full-width}
+
+```{r}
+#| label: tbl-neighbours-england
+
+.render_neighbour_table(regions[["England"]])
+```
+
+# Scotland
+
+## Row {height="55%"}
+
+### {width="65%"}
+
+```{r}
+#| label: fig-map-scotland
+#| fig-cap: !expr regions[["Scotland"]]$cap_map
+
+.render_map(regions[["Scotland"]]$counties_wgs84, regions[["Scotland"]]$pal_fn)
+```
+
+### {width="35%"}
+
+#### Key figures
+
+```{r}
+#| label: tbl-key-stats-scotland
+
+.render_key_stats(regions[["Scotland"]])
+```
+
+#### About
+
+Scotland has `r regions[["Scotland"]]$n_counties` council areas. Of these,
+`r regions[["Scotland"]]$n_coastal` (`r regions[["Scotland"]]$pct_coastal`%)
+touch the coast directly and `r regions[["Scotland"]]$n_inland` are inland.
+
+The most inland council area (distance `r regions[["Scotland"]]$max_distance`) is
+**`r paste(regions[["Scotland"]]$deepest_names, collapse = ", ")`**.
+
+---
+
+*Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
+Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
+BFS via [igraph](https://r.igraph.org/).*
+
+## Row {height="45%"}
+
+### {width="40%"}
+
+#### Sea-Distance Distribution
+
+```{r}
+#| label: tbl-summary-scotland
+
+.render_summary_table(regions[["Scotland"]])
+```
+
+#### Sea-Distance Dot Plot
+
+```{r}
+#| label: fig-dot-scotland
+#| fig-cap: !expr regions[["Scotland"]]$cap_dot
+#| fig-height: 2
+
+.render_dot_plot(regions[["Scotland"]])
+```
+
+### Council Area Neighbours {width="60%" .full-width}
+
+```{r}
+#| label: tbl-neighbours-scotland
+
+.render_neighbour_table(regions[["Scotland"]])
+```
+
+# Wales
+
+## Row {height="55%"}
+
+### {width="65%"}
+
+```{r}
+#| label: fig-map-wales
+#| fig-cap: !expr regions[["Wales"]]$cap_map
+
+.render_map(regions[["Wales"]]$counties_wgs84, regions[["Wales"]]$pal_fn)
+```
+
+### {width="35%"}
+
+#### Key figures
+
+```{r}
+#| label: tbl-key-stats-wales
+
+.render_key_stats(regions[["Wales"]])
+```
+
+#### About
+
+Wales has `r regions[["Wales"]]$n_counties` counties. Of these,
+`r regions[["Wales"]]$n_coastal` (`r regions[["Wales"]]$pct_coastal`%)
+touch the coast directly and `r regions[["Wales"]]$n_inland` are inland.
+
+The most inland county (distance `r regions[["Wales"]]$max_distance`) is
+**`r paste(regions[["Wales"]]$deepest_names, collapse = ", ")`**.
+
+---
+
+*Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
+Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
+BFS via [igraph](https://r.igraph.org/).*
+
+## Row {height="45%"}
+
+### {width="40%"}
+
+#### Sea-Distance Distribution
+
+```{r}
+#| label: tbl-summary-wales
+
+.render_summary_table(regions[["Wales"]])
+```
+
+#### Sea-Distance Dot Plot
+
+```{r}
+#| label: fig-dot-wales
+#| fig-cap: !expr regions[["Wales"]]$cap_dot
+#| fig-height: 2
+
+.render_dot_plot(regions[["Wales"]])
+```
+
+### County Neighbours {width="60%" .full-width}
+
+```{r}
+#| label: tbl-neighbours-wales
+
+.render_neighbour_table(regions[["Wales"]])
 ```
