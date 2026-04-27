@@ -1,8 +1,11 @@
 /*-- scss:defaults --*/
 $navbar-bg: #1a3a5c;
 $navbar-fg: #ffffff;
+$font-size-base: 1.125rem;  /* +2px from default 1rem (16px → 18px) */
 
 /*-- scss:rules --*/
+
+/* Dark navbar */
 .navbar, .quarto-dashboard .navbar {
   background-color: #1a3a5c !important;
 }
@@ -13,6 +16,13 @@ $navbar-fg: #ffffff;
 }
 .navbar .nav-link:hover {
   color: #cce0ff !important;
+}
+
+/* White captions for contrast */
+caption, figcaption, .figure-caption, .quarto-float-caption {
+  color: #ffffff !important;
+  text-align: left !important;
+  caption-side: top !important;
 }
 
 /* Leaflet zoom controls visible on dark background */
@@ -26,11 +36,20 @@ $navbar-fg: #ffffff;
 }
 
 /* Leaflet legend readable on dark background */
-.leaflet-control .legend,
-.info.legend {
-  background: rgba(30, 30, 30, 0.9) !important;
+.info.legend,
+.leaflet-control .legend {
+  background: rgba(30, 30, 30, 0.95) !important;
   color: #fff !important;
+  padding: 8px 12px !important;
 }
 .info.legend i {
   border: 1px solid #555;
+}
+
+/* Full-width table with horizontal scroll */
+.full-width .card-body {
+  overflow-x: auto;
+}
+.full-width table {
+  white-space: nowrap;
 }
