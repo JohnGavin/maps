@@ -189,14 +189,16 @@ library(DT)
       weight      = 1.5,
       opacity     = 1,
       popup       = ~ paste0(
+        "<div style=\"font-size: 16px;\">",
         "<strong>", county_name, "</strong><br>",
         country, "<br>",
-        "Sea distance: ", sea_distance
+        "Sea distance: ", sea_distance,
+        "</div>"
       ),
       label       = ~ paste0(county_name, " (", sea_distance, ")")
     ) |>
     leaflet::addLegend(
-      position  = "bottomleft",
+      position  = "topright",
       pal       = pal_fn,
       values    = ~ sea_distance,
       title     = "Sea distance",
@@ -340,6 +342,79 @@ for (obj_name in c("england_raw", "scotland_raw", "wales_raw")) {
   obj <- get(obj_name)
   obj$county_name <- as.character(obj$NAME_2)
   obj$country     <- as.character(obj$NAME_1)
+
+  # Fix literal "NA" county names via HASC_2 lookup and clean camel-case
+  # (GADM 4.1 GBR level 2 has 67 rows where NAME_2 is the string "NA")
+  is_na_str <- is.na(obj$county_name) | obj$county_name == "NA"
+  if (any(is_na_str)) {
+    hasc_lookup <- c(
+      "GB.TM" = "Tameside",       "GB.TD" = "Trafford",
+      "GB.WZ" = "Walsall",        "GB.WT" = "Warrington",
+      "GB.WR" = "Warwick",        "GB.WN" = "Wigan",
+      "GB.WL" = "Wiltshire",      "GB.WA" = "Windsor and Maidenhead",
+      "GB.WO" = "Wokingham",      "GB.WC" = "Worcestershire",
+      "GB.BS" = "Bristol",        "GB.BU" = "Buckinghamshire",
+      "GB.BR" = "Bury",           "GB.CM" = "Cambridgeshire",
+      "GB.CB" = "Central Bedfordshire",
+      "GB.CQ" = "Cheshire East",  "GB.BX" = "Barnsley",
+      "GB.CO" = "Cornwall",       "GB.CT" = "Coventry",
+      "GB.DB" = "Derbyshire",     "GB.DO" = "Devon",
+      "GB.DC" = "Doncaster",      "GB.DS" = "Dorset",
+      "GB.DY" = "Dudley",         "GB.EY" = "East Riding of Yorkshire",
+      "GB.ES" = "East Sussex",    "GB.EX" = "Essex",
+      "GB.GL" = "Greater London", "GB.HA" = "Hampshire",
+      "GB.HT" = "Hertfordshire",  "GB.KN" = "Knowsley",
+      "GB.BI" = "Birmingham",     "GB.LC" = "Leicester",
+      "GB.LE" = "Leicestershire", "GB.LI" = "Lincolnshire",
+      "GB.MN" = "Manchester",     "GB.MB" = "Middlesbrough",
+      "GB.NU" = "Newcastle upon Tyne",
+      "GB.NF" = "Norfolk",        "GB.NL" = "North Lincolnshire",
+      "GB.NS" = "North Somerset", "GB.NI" = "North Tyneside",
+      "GB.NA" = "Northamptonshire", "GB.NB" = "Northumberland",
+      "GB.NG" = "Nottingham",     "GB.NT" = "Nottinghamshire",
+      "GB.OX" = "Oxfordshire",    "GB.PS" = "Portsmouth",
+      "GB.RG" = "Reading",        "GB.RC" = "Redcar and Cleveland",
+      "GB.RD" = "Rochdale",       "GB.RH" = "Rotherham",
+      "GB.RL" = "Rutland",        "GB.BT" = "Bolton",
+      "GB.ZF" = "Salford",        "GB.ZW" = "Sandwell",
+      "GB.SE" = "Sefton",         "GB.SP" = "Shropshire",
+      "GB.ZL" = "Slough",         "GB.SI" = "Solihull",
+      "GB.SX" = "South Tyneside", "GB.ZH" = "Southampton",
+      "GB.ST" = "Staffordshire",  "GB.SK" = "Stockport",
+      "GB.SO" = "Stoke-on-Trent", "GB.SD" = "Sunderland",
+      # Scotland
+      "GB.NR" = "North Ayrshire",
+      # Wales
+      "GB.GD" = "Gwynedd",          "GB.MT" = "Merthyr Tydfil",
+      "GB.NP" = "Newport",          "GB.SW" = "Swansea",
+      "GB.TF" = "Torfaen",          "GB.VG" = "Vale of Glamorgan",
+      "GB.WX" = "Wrexham",          "GB.BG" = "Bridgend",
+      "GB.BJ" = "Blaenau Gwent",    "GB.DI" = "Denbighshire"
+    )
+    obj$county_name[is_na_str] <- hasc_lookup[obj$HASC_2[is_na_str]]
+  }
+
+  # Clean camel-case: insert space before capital following a lower-case letter
+  obj$county_name <- gsub("([a-z])([A-Z])", "\\1 \\2", obj$county_name)
+  # Remove trailing ", County of" / ", City of" suffixes
+  obj$county_name <- gsub(",\\s*County\\s*of$|,Countyof$", "", obj$county_name)
+  obj$county_name <- gsub(",\\s*City\\s*of$|,Cityof$",     "", obj$county_name)
+  # Fix truncated Christchurch and Poole name
+  obj$county_name <- gsub(",Christchurchand Po$", ", Christchurch and Poole", obj$county_name)
+
+  # Drop rows where county_name is still NA after lookup (junk GADM rows)
+  still_bad <- is.na(obj$county_name) | obj$county_name == "NA"
+  if (any(still_bad)) {
+    message("Dropping ", sum(still_bad), " rows with unresolvable county names in ", obj_name)
+    obj <- obj[!still_bad, ]
+  }
+
+  # Validate: no NA or literal "NA" county names remain
+  stopifnot(
+    "county_name contains NA after name fixing"          = !any(is.na(obj$county_name)),
+    "county_name contains literal 'NA' after name fixing" = !any(obj$county_name == "NA", na.rm = TRUE)
+  )
+
   assign(obj_name, obj[, c("county_name", "country", "geometry")])
 }
 
@@ -506,7 +581,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-ireland
 #| fig-cap: !expr regions[["Ireland"]]$cap_dot
-#| fig-height: 1.5
+#| fig-height: 4.5
 
 .render_dot_plot(regions[["Ireland"]])
 ```
@@ -574,7 +649,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-england
 #| fig-cap: !expr regions[["England"]]$cap_dot
-#| fig-height: 1.5
+#| fig-height: 4.5
 
 .render_dot_plot(regions[["England"]])
 ```
@@ -642,7 +717,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-scotland
 #| fig-cap: !expr regions[["Scotland"]]$cap_dot
-#| fig-height: 1.5
+#| fig-height: 4.5
 
 .render_dot_plot(regions[["Scotland"]])
 ```
@@ -710,7 +785,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-wales
 #| fig-cap: !expr regions[["Wales"]]$cap_dot
-#| fig-height: 1.5
+#| fig-height: 4.5
 
 .render_dot_plot(regions[["Wales"]])
 ```
