@@ -53,3 +53,40 @@ caption, figcaption, .figure-caption, .quarto-float-caption {
 .full-width table {
   white-space: nowrap;
 }
+
+/* DT dark theme */
+.dataTables_wrapper,
+table.dataTable,
+table.dataTable th,
+table.dataTable td,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  color: #e0e0e0 !important;
+}
+table.dataTable,
+table.dataTable thead,
+table.dataTable tbody {
+  background-color: #1a1a2e !important;
+}
+table.dataTable thead th {
+  background-color: #16213e !important;
+  border-bottom-color: #444 !important;
+}
+table.dataTable tbody tr {
+  background-color: #1a1a2e !important;
+}
+table.dataTable tbody tr:hover {
+  background-color: #252545 !important;
+}
+table.dataTable tbody tr.even {
+  background-color: #1e1e3a !important;
+}
+.dataTables_wrapper input[type="search"],
+.dataTables_wrapper .form-control,
+.dataTables_wrapper select {
+  background-color: #16213e !important;
+  color: #e0e0e0 !important;
+  border-color: #444 !important;
+}

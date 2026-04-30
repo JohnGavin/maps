@@ -21,6 +21,7 @@ library(sf)
 library(leaflet)
 library(dplyr)
 library(igraph)
+library(DT)
 
 # ---- helpers (inline so the vignette is self-contained) ----------------------
 
@@ -179,7 +180,7 @@ library(igraph)
 }
 
 .render_map <- function(counties_wgs84, pal_fn) {
-  leaflet(data = counties_wgs84, height = "550px") |>
+  leaflet(data = counties_wgs84, height = "400px") |>
     leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
     leaflet::addPolygons(
       fillColor   = ~ pal_fn(sea_distance),
@@ -240,26 +241,31 @@ library(igraph)
 }
 
 .render_summary_table <- function(r) {
-  knitr::kable(
-    r$summary |>
-      dplyr::mutate(
-        pct   = round(100 * n / sum(n), 1),
-        label = dplyr::case_when(
-          sea_distance == 0L ~ "Coastal (0 hops)",
-          sea_distance == 1L ~ "1 hop inland",
-          TRUE               ~ paste0(sea_distance, " hops inland")
-        )
-      ) |>
-      dplyr::select(label, n, pct) |>
-      dplyr::rename("Sea distance" = label, "Count" = n, "Share (%)" = pct),
-    align   = c("l", "r", "r"),
-    caption = paste0(
-      "Distribution of ", r$label_long, " across sea-distance categories. ",
-      r$n_coastal, " are coastal, ", r$n_inland, " are inland. ",
-      paste(r$deepest_names, collapse = " and "),
-      " is the only distance-", r$max_distance, " unit. ",
-      "Source: ", r$gadm_link, " + ", r$gisco_link,
-      "; sea distance via ", r$igraph_link, " BFS."
+  df <- r$summary |>
+    dplyr::mutate(
+      pct   = round(100 * n / sum(n), 1),
+      label = dplyr::case_when(
+        sea_distance == 0L ~ "Coastal (0 hops)",
+        sea_distance == 1L ~ "1 hop inland",
+        TRUE               ~ paste0(sea_distance, " hops inland")
+      )
+    ) |>
+    dplyr::select(label, n, pct)
+  DT::datatable(
+    df,
+    colnames  = c("Sea distance", "Count", "Share (%)"),
+    rownames  = FALSE,
+    options   = list(dom = "t", paging = FALSE, ordering = TRUE),
+    caption   = htmltools::tags$caption(
+      style = "caption-side: top; text-align: left; color: #ffffff;",
+      paste0(
+        "Distribution of ", r$label_long, ". ",
+        r$n_coastal, " coastal, ", r$n_inland, " inland. ",
+        paste(r$deepest_names, collapse = " and "),
+        " is the most inland (distance ", r$max_distance, "). ",
+        "Source: ", r$gadm_link, " + ", r$gisco_link,
+        "; sea distance via ", r$igraph_link, " BFS."
+      )
     )
   )
 }
@@ -281,22 +287,32 @@ library(igraph)
 }
 
 .render_neighbour_table <- function(r) {
-  knitr::kable(
-    r$nb_table |>
-      dplyr::select(county_name, n_neighbours, boundary_length_km, neighbour_names) |>
-      dplyr::rename(
-        "County"           = county_name,
-        "Neighbours"       = n_neighbours,
-        "Boundary (km)"    = boundary_length_km,
-        "Neighbour names"  = neighbour_names
-      ),
-    align   = c("l", "r", "r", "l"),
-    caption = paste0(
-      "All ", r$n_counties, " ", r$label_long,
-      " ordered by decreasing number of neighbours, ",
-      "ties broken by decreasing shared boundary length (km). ",
-      "Computed in EPSG:", r$crs_projected, ". ",
-      "Source: ", r$gadm_link, " polygons; adjacency via ", r$sf_link, "."
+  df <- r$nb_table |>
+    dplyr::select(county_name, n_neighbours, boundary_length_km, neighbour_names)
+  DT::datatable(
+    df,
+    colnames  = c("County", "Neighbours", "Boundary (km)", "Neighbour names"),
+    rownames  = FALSE,
+    filter    = "top",
+    options   = list(
+      pageLength = 15,
+      scrollX    = TRUE,
+      order      = list(list(1, "desc")),
+      columnDefs = list(
+        list(width = "100px", targets = 0),
+        list(width = "60px", targets = 1),
+        list(width = "80px", targets = 2)
+      )
+    ),
+    caption   = htmltools::tags$caption(
+      style = "caption-side: top; text-align: left; color: #ffffff;",
+      paste0(
+        "All ", r$n_counties, " ", r$label_long,
+        " sorted by neighbours (click headers to re-sort). ",
+        "Use filters to search. ",
+        "Boundary lengths in EPSG:", r$crs_projected, ". ",
+        "Source: ", r$gadm_link, "; adjacency via ", r$sf_link, "."
+      )
     )
   )
 }
@@ -308,7 +324,7 @@ igraph_link <- "[igraph](https://r.igraph.org/)"
 sf_link     <- "[sf](https://r-spatial.github.io/sf/)"
 
 # ---- fetch base data ---------------------------------------------------------
-coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03")
+coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "20")
 
 ireland_counties_raw <- .get_ireland_32_counties()
 
@@ -435,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 # Ireland
 
-## Row {height="55%"}
+## Row
 
 ### {width="65%"}
 
@@ -473,7 +489,7 @@ The most inland county (distance `r regions[["Ireland"]]$max_distance`) is
 Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:2157;
 BFS via [igraph](https://r.igraph.org/).*
 
-## Row {height="45%"}
+## Row
 
 ### {width="40%"}
 
@@ -490,7 +506,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-ireland
 #| fig-cap: !expr regions[["Ireland"]]$cap_dot
-#| fig-height: 2
+#| fig-height: 1.5
 
 .render_dot_plot(regions[["Ireland"]])
 ```
@@ -505,7 +521,7 @@ BFS via [igraph](https://r.igraph.org/).*
 
 # England
 
-## Row {height="55%"}
+## Row
 
 ### {width="65%"}
 
@@ -541,7 +557,7 @@ The most inland county (distance `r regions[["England"]]$max_distance`) is
 Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
 BFS via [igraph](https://r.igraph.org/).*
 
-## Row {height="45%"}
+## Row
 
 ### {width="40%"}
 
@@ -558,7 +574,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-england
 #| fig-cap: !expr regions[["England"]]$cap_dot
-#| fig-height: 2
+#| fig-height: 1.5
 
 .render_dot_plot(regions[["England"]])
 ```
@@ -573,7 +589,7 @@ BFS via [igraph](https://r.igraph.org/).*
 
 # Scotland
 
-## Row {height="55%"}
+## Row
 
 ### {width="65%"}
 
@@ -609,7 +625,7 @@ The most inland council area (distance `r regions[["Scotland"]]$max_distance`) i
 Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
 BFS via [igraph](https://r.igraph.org/).*
 
-## Row {height="45%"}
+## Row
 
 ### {width="40%"}
 
@@ -626,7 +642,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-scotland
 #| fig-cap: !expr regions[["Scotland"]]$cap_dot
-#| fig-height: 2
+#| fig-height: 1.5
 
 .render_dot_plot(regions[["Scotland"]])
 ```
@@ -641,7 +657,7 @@ BFS via [igraph](https://r.igraph.org/).*
 
 # Wales
 
-## Row {height="55%"}
+## Row
 
 ### {width="65%"}
 
@@ -677,7 +693,7 @@ The most inland county (distance `r regions[["Wales"]]$max_distance`) is
 Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
 BFS via [igraph](https://r.igraph.org/).*
 
-## Row {height="45%"}
+## Row
 
 ### {width="40%"}
 
@@ -694,7 +710,7 @@ BFS via [igraph](https://r.igraph.org/).*
 ```{r}
 #| label: fig-dot-wales
 #| fig-cap: !expr regions[["Wales"]]$cap_dot
-#| fig-height: 2
+#| fig-height: 1.5
 
 .render_dot_plot(regions[["Wales"]])
 ```

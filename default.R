@@ -15,6 +15,7 @@ r_pkgs <- c(
   # Suggested packages
   "osmdata",
   "leaflet",
+  "DT",
   "targets",
   "tarchetypes",
 
