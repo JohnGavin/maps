@@ -4,13 +4,15 @@
 \alias{get_coastline}
 \title{Get Ireland Coastline}
 \usage{
-get_coastline(year = 2021)
+get_coastline(year = 2016, resolution = "03")
 }
 \arguments{
-\item{year}{Numeric. Reference year. Default 2021.}
+\item{year}{Numeric. Reference year. Default 2016.}
+
+\item{resolution}{Character. Resolution code. Default "03".}
 }
 \value{
-An sf linestring object of coastlines.
+An sf object of coastlines.
 }
 \description{
 Fetch coastline geometry for intersection with county boundaries.

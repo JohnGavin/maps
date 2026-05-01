@@ -17,7 +17,27 @@ get_country_boundaries <- function(iso3, level = 1L, name_filter = NULL,
     "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_%s_%d.json",
     toupper(iso3), as.integer(level)
   )
-  sf_data <- sf::st_read(url, quiet = TRUE)
+  cache_file <- sprintf("gadm41_%s_%d.rds", toupper(iso3), as.integer(level))
+  cache_path <- system.file("extdata", cache_file, package = "maps")
+
+  sf_data <- tryCatch(
+    sf::st_read(url, quiet = TRUE),
+    error = function(e) {
+      rlang::inform(c("i" = paste0("GADM API unavailable (", conditionMessage(e), ")")))
+      NULL
+    }
+  ) %||% {
+    if (nzchar(cache_path)) {
+      rlang::inform(c("i" = paste0("GADM API unavailable; using cached ", cache_file)))
+      readRDS(cache_path)
+    } else {
+      rlang::abort(c(
+        "x" = paste0("Cannot fetch GADM data for ", iso3, " level ", level),
+        "i" = "GADM API is down and no local cache exists"
+      ))
+    }
+  }
+
   if (!is.null(name_filter)) {
     sf_data <- sf_data[sf_data[[name_col]] %in% name_filter, ]
   }
@@ -121,9 +141,19 @@ get_ireland_32_counties <- function() {
 #'
 #' Fetch coastline geometry for intersection with county boundaries.
 #'
-#' @param year Numeric. Reference year. Default 2021.
-#' @return An sf linestring object of coastlines.
+#' @param year Numeric. Reference year. Default 2016.
+#' @param resolution Character. Resolution code. Default "03".
+#' @return An sf object of coastlines.
 #' @export
-get_coastline <- function(year = 2021) {
-  giscoR::gisco_get_coastallines(year = year, resolution = "10")
+get_coastline <- function(year = 2016, resolution = "03") {
+  cache_path <- system.file("extdata", "coastline_03_ireland_uk.rds", package = "maps")
+
+  giscoR::gisco_get_coastallines(year = year, resolution = resolution) %||% {
+    if (nzchar(cache_path)) {
+      rlang::inform(c("i" = "GISCO API unavailable; using cached coastline"))
+      readRDS(cache_path)
+    } else {
+      rlang::abort("Cannot fetch coastline and no local cache exists")
+    }
+  }
 }
