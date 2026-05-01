@@ -35,15 +35,23 @@ caption, figcaption, .figure-caption, .quarto-float-caption {
   background-color: #555 !important;
 }
 
-/* Leaflet legend readable on dark background */
+/* Leaflet legend: high contrast on dark background */
 .info.legend,
 .leaflet-control .legend {
-  background: rgba(30, 30, 30, 0.95) !important;
-  color: #fff !important;
-  padding: 8px 12px !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: #ffffff !important;
+  padding: 10px 14px !important;
+  margin: 15px !important;
+  border: 1px solid #555 !important;
+  border-radius: 4px !important;
 }
 .info.legend i {
-  border: 1px solid #555;
+  border: 1px solid #666;
+  margin-right: 6px;
+}
+.info.legend span,
+.info.legend div {
+  color: #ffffff !important;
 }
 
 /* Full-width table with horizontal scroll */

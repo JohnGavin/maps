@@ -198,12 +198,11 @@ library(DT)
       label       = ~ paste0(county_name, " (", sea_distance, ")")
     ) |>
     leaflet::addLegend(
-      position  = "topright",
+      position  = "topleft",
       pal       = pal_fn,
       values    = ~ sea_distance,
       title     = "Sea distance",
-      opacity   = 1,
-      labFormat = leaflet::labelFormat(prefix = "Distance ")
+      opacity   = 1
     )
 }
 
@@ -320,13 +319,13 @@ library(DT)
 }
 
 # ---- source links for captions -----------------------------------------------
-gadm_link   <- "[GADM 4.1](https://gadm.org/data.html)"
-gisco_link  <- "[GISCO 2016](https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units)"
-igraph_link <- "[igraph](https://r.igraph.org/)"
-sf_link     <- "[sf](https://r-spatial.github.io/sf/)"
+gadm_link   <- '<a href="https://gadm.org/data.html" target="_blank">GADM 4.1</a>'
+gisco_link  <- '<a href="https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units" target="_blank">GISCO 2016</a>'
+igraph_link <- '<a href="https://r.igraph.org/" target="_blank">igraph</a>'
+sf_link     <- '<a href="https://r-spatial.github.io/sf/" target="_blank">sf</a>'
 
 # ---- fetch base data ---------------------------------------------------------
-coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "20")
+coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03")
 
 ireland_counties_raw <- .get_ireland_32_counties()
 
@@ -506,6 +505,100 @@ for (rname in names(region_specs)) {
     gisco_link    = gisco_link,
     igraph_link   = igraph_link,
     sf_link       = sf_link
+  )
+}
+
+# ---- Combined Great Britain (England + Scotland + Wales) ---------------------
+{
+  gb_crs        <- 27700L
+  gb_label_long <- "Great Britain's counties and council areas"
+  gb_unit_label <- "county"
+
+  gb_counties_raw <- rbind(
+    regions[["England"]]$counties,
+    regions[["Scotland"]]$counties,
+    regions[["Wales"]]$counties
+  )
+
+  gb_counties <- .compute_sea_distance(gb_counties_raw, coastline,
+                                       crs_projected = gb_crs)
+  stopifnot(!any(is.na(gb_counties$sea_distance)))
+  stopifnot(!any(is.na(gb_counties$county_name)))
+
+  gb_summary    <- .summarise_sea_distance(gb_counties)
+  gb_nb_table   <- .compute_neighbour_table(gb_counties, crs_projected = gb_crs)
+
+  gb_n_counties    <- nrow(gb_counties)
+  gb_n_coastal     <- sum(gb_counties$sea_distance == 0L, na.rm = TRUE)
+  gb_n_inland      <- gb_n_counties - gb_n_coastal
+  gb_max_distance  <- max(gb_counties$sea_distance, na.rm = TRUE)
+  gb_pct_coastal   <- round(100 * gb_n_coastal / gb_n_counties, 1)
+  gb_deepest_names <- sort(gb_counties$county_name[gb_counties$sea_distance == gb_max_distance])
+
+  gb_dist_counts <- setNames(
+    vapply(0:gb_max_distance,
+           function(d) sum(gb_counties$sea_distance == d, na.rm = TRUE),
+           integer(1L)),
+    paste0("d", 0:gb_max_distance)
+  )
+
+  gb_dist_palette <- .build_palette(gb_max_distance)
+
+  gb_pal_fn <- leaflet::colorFactor(
+    palette = unname(gb_dist_palette[as.character(0:gb_max_distance)]),
+    domain  = 0:gb_max_distance
+  )
+
+  gb_counties_wgs84 <- sf::st_transform(gb_counties, crs = 4326L)
+
+  gb_cap_map <- paste0(
+    "Interactive choropleth of ", gb_label_long, " coloured by sea-distance. ",
+    "Includes cross-border neighbours: English counties touching Welsh or Scottish areas ",
+    "are connected in the adjacency graph. ",
+    "Sea-distance is the minimum number of shared-boundary hops to reach the coast ",
+    "(distance 0 = directly coastal, 1 = one hop inland, etc.). ",
+    "Of the ", gb_n_counties, " ", gb_unit_label, "s, ",
+    gb_n_coastal, " (", gb_pct_coastal, "%) touch the coast directly ",
+    "and ", gb_n_inland, " are inland. ",
+    "The most inland (distance ", gb_max_distance, ") is ",
+    paste(gb_deepest_names, collapse = " and "), ". ",
+    "Click any area for details. ",
+    "Source: ", gadm_link, " + ", gisco_link, " coastline."
+  )
+
+  gb_cap_dot <- paste0(
+    "Dot plot showing the count of ", gb_label_long, " at each sea-distance level. ",
+    "The x-axis gives the number of ", gb_unit_label, "s; ",
+    "the y-axis gives sea distance in hops (0 = directly coastal). ",
+    gb_n_coastal, " are coastal (distance 0); ",
+    "the most inland (distance ", gb_max_distance, ") is ",
+    paste(gb_deepest_names, collapse = " and "), ". ",
+    "Source: ", gadm_link, "; sea distance via ", igraph_link, " BFS."
+  )
+
+  regions[["GreatBritain"]] <- list(
+    counties       = gb_counties,
+    counties_wgs84 = gb_counties_wgs84,
+    summary        = gb_summary,
+    nb_table       = gb_nb_table,
+    n_counties     = gb_n_counties,
+    n_coastal      = gb_n_coastal,
+    n_inland       = gb_n_inland,
+    max_distance   = gb_max_distance,
+    pct_coastal    = gb_pct_coastal,
+    deepest_names  = gb_deepest_names,
+    dist_counts    = gb_dist_counts,
+    dist_palette   = gb_dist_palette,
+    pal_fn         = gb_pal_fn,
+    cap_map        = gb_cap_map,
+    cap_dot        = gb_cap_dot,
+    crs_projected  = gb_crs,
+    label_long     = gb_label_long,
+    unit_label     = gb_unit_label,
+    gadm_link      = gadm_link,
+    gisco_link     = gisco_link,
+    igraph_link    = igraph_link,
+    sf_link        = sf_link
   )
 }
 ```
@@ -796,4 +889,76 @@ BFS via [igraph](https://r.igraph.org/).*
 #| label: tbl-neighbours-wales
 
 .render_neighbour_table(regions[["Wales"]])
+```
+
+# Great Britain
+
+## Row
+
+### {width="65%"}
+
+```{r}
+#| label: fig-map-gb
+#| fig-cap: !expr regions[["GreatBritain"]]$cap_map
+
+.render_map(regions[["GreatBritain"]]$counties_wgs84, regions[["GreatBritain"]]$pal_fn)
+```
+
+### {width="35%"}
+
+#### Key figures
+
+```{r}
+#| label: tbl-key-stats-gb
+
+.render_key_stats(regions[["GreatBritain"]])
+```
+
+#### About
+
+Great Britain combines England, Scotland, and Wales into a single adjacency
+graph with `r regions[["GreatBritain"]]$n_counties` counties and council areas.
+Cross-border neighbours — English counties touching Welsh or Scottish areas —
+are included, providing information not available in the individual tabs.
+Of these, `r regions[["GreatBritain"]]$n_coastal`
+(`r regions[["GreatBritain"]]$pct_coastal`%) touch the coast directly and
+`r regions[["GreatBritain"]]$n_inland` are inland.
+
+The most inland area (distance `r regions[["GreatBritain"]]$max_distance`) is
+**`r paste(regions[["GreatBritain"]]$deepest_names, collapse = ", ")`**.
+
+---
+
+*Data: [GADM 4.1](https://gadm.org/) + [GISCO 2016](https://ec.europa.eu/eurostat/web/gisco).
+Adjacency via [sf](https://r-spatial.github.io/sf/) with 200 m buffer in EPSG:27700;
+BFS via [igraph](https://r.igraph.org/).*
+
+## Row
+
+### {width="40%"}
+
+#### Sea-Distance Distribution
+
+```{r}
+#| label: tbl-summary-gb
+
+.render_summary_table(regions[["GreatBritain"]])
+```
+
+#### Sea-Distance Dot Plot
+
+```{r}
+#| label: fig-dot-gb
+#| fig-cap: !expr regions[["GreatBritain"]]$cap_dot
+#| fig-height: 4.5
+
+.render_dot_plot(regions[["GreatBritain"]])
+```
+
+### County Neighbours {width="60%" .full-width}
+
+```{r}
+#| label: tbl-neighbours-gb
+
+.render_neighbour_table(regions[["GreatBritain"]])
 ```
