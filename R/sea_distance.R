@@ -84,6 +84,19 @@ compute_sea_distance <- function(counties, coastline, crs_projected = 3035L) {
   coastal     <- lengths(sf::st_intersects(counties, coastline_use)) > 0
   coastal_idx <- which(coastal)
 
+  # ── Coastline resolution sanity check ──────────────────────────────────────
+
+  pct_coastal <- 100 * length(coastal_idx) / nrow(counties)
+  if (pct_coastal < 30) {
+    rlang::warn(c(
+      "!" = paste0("Only ", length(coastal_idx), " of ", nrow(counties),
+                   " counties (", round(pct_coastal, 1),
+                   "%) detected as coastal"),
+      "i" = "This may indicate the coastline resolution is too coarse",
+      "i" = "Try a finer resolution (e.g. '03' instead of '20')"
+    ))
+  }
+
   # ── BFS from all coastal counties simultaneously ──────────────────────────
   n    <- nrow(counties)
   dist <- rep(NA_integer_, n)
