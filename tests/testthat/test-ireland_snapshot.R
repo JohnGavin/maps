@@ -3,14 +3,18 @@
 # This test catches coastline resolution regressions (e.g. switching from
 # res "03" to "20" silently drops Leitrim and Limerick from the coastal set).
 # See JohnGavin/maps#3 for the incident that motivated this test.
+#
+# Uses base R %||% (R >= 4.4.0) to fall back to cached coastline when
+# the GISCO API is unavailable, so the test never needs to skip.
 
 test_that("Ireland has exactly 18 coastal counties at resolution 03", {
   skip_on_cran()
-  skip_if_offline()
 
   counties <- get_ireland_32_counties()
-  coast <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03")
-  skip_if(is.null(coast), "GISCO coastline API unavailable")
+
+  # Try live GISCO API; fall back to cached RDS via %||%
+  coast <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03") %||%
+    readRDS(system.file("extdata", "coastline_03_ireland_uk.rds", package = "maps"))
 
   counties <- compute_sea_distance(counties, coast, crs_projected = 2157L)
 
