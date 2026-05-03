@@ -48,8 +48,41 @@
 - Multi-line `!expr paste0(...)` in Quarto `fig-cap` causes YAML parse error. Pre-compute captions in setup chunk.
 - `orientation: pages` not valid in Quarto dashboard format. Changed to `orientation: rows`.
 
+## 2026-04-27 to 2026-05-03
+
+### Completed
+- Multi-country dashboard: Ireland, England, Scotland, Wales, Great Britain (single page, tabbed)
+- Parameterized R functions: `crs_projected` arg, generic `get_country_boundaries(iso3, level)`
+- Fixed sea-distance bug: GISCO coastline polygons→boundary linestrings (was all-coastal)
+- Fixed island bug: `Inf→0` for disconnected coastal islands (Orkney, Shetland, IoW)
+- Fixed GADM GBR name quality: 78-entry HASC→name lookup + camel-case cleaning
+- DT::datatable() for neighbour + summary tables (sortable, filterable)
+- Dark theme: black background plots, white captions, DarkMatter tiles, legend contrast CSS
+- Base R `%||%` cached fallback on ALL remote fetches (GADM + GISCO)
+- Cached boundary data in inst/extdata/ (1.2MB: IRL_1, GBR_2, GBR_3, coastline)
+- Ireland snapshot regression test (18 coastal counties, all 32 distances verified)
+- Coastline resolution sanity check: warns if <30% counties detected as coastal
+- Raised issues: #2 (layout), #3 (coastline regression), #4 (legend clipping)
+- Tagged v0.1.0-ireland as revert point
+
+### Failed Approaches
+- GISCO coastline res "03" returned 404 (transient). Fell back to res "20" which lost Leitrim + Limerick. Fixed by restoring "03" when API recovered + adding cached fallback.
+- GADM GBR level 2: 67 rows have NAME_2 = literal string "NA", 1 row has all fields NA (junk). Fixed with HASC lookup + drop junk rows.
+- Leaflet legend bottomright overlapped by adjacent table column. Moved to topleft.
+- Leaflet legend bottomleft clipped at plot edge. Moved to topleft with CSS margin.
+- Markdown `[text](url)` links in kable captions render as literal text. Changed to `<a href>` HTML tags.
+
+### Accuracy / Metrics
+- Tests: 12 passing [ FAIL 0 | WARN 1 | SKIP 0 | PASS 12 ]
+- Snapshot test verifies all 32 Ireland county distances
+- 5 dashboard tabs: Ireland, England, Scotland, Wales, Great Britain
+
 ### Known Limitations
 - OSM deep hierarchy (baronies, parishes, townlands) not yet implemented
 - Belfast assigned to County Antrim (straddles Antrim/Down but canonically Antrim)
 - Running `Rscript default.R` overwrites manual nix patches (udunits + shellHook)
+- GADM GBR level 2 name quality: 78 entries required manual HASC lookup — fragile if GADM updates
+- No snapshot regression tests for England/Scotland/Wales yet (only Ireland)
+- Dashboard render takes ~3 min (5 tabs × GADM downloads + neighbour computation)
 - T language integration TBD (JohnGavin/maps#1)
+- Legend still slightly clipped in some viewport sizes (JohnGavin/maps#4)
