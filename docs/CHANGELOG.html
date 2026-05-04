@@ -123,6 +123,12 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#accuracy-metrics" id="toc-accuracy-metrics" class="nav-link" data-scroll-target="#accuracy-metrics">Accuracy / Metrics</a></li>
   <li><a href="#failed-approaches-1" id="toc-failed-approaches-1" class="nav-link" data-scroll-target="#failed-approaches-1">Failed Approaches</a></li>
   <li><a href="#failed-approaches-continued" id="toc-failed-approaches-continued" class="nav-link" data-scroll-target="#failed-approaches-continued">Failed Approaches (continued)</a></li>
+  </ul></li>
+  <li><a href="#to-2026-05-03" id="toc-to-2026-05-03" class="nav-link" data-scroll-target="#to-2026-05-03">2026-04-27 to 2026-05-03</a>
+  <ul class="collapse">
+  <li><a href="#completed-1" id="toc-completed-1" class="nav-link" data-scroll-target="#completed-1">Completed</a></li>
+  <li><a href="#failed-approaches-2" id="toc-failed-approaches-2" class="nav-link" data-scroll-target="#failed-approaches-2">Failed Approaches</a></li>
+  <li><a href="#accuracy-metrics-1" id="toc-accuracy-metrics-1" class="nav-link" data-scroll-target="#accuracy-metrics-1">Accuracy / Metrics</a></li>
   <li><a href="#known-limitations" id="toc-known-limitations" class="nav-link" data-scroll-target="#known-limitations">Known Limitations</a></li>
   </ul></li>
   </ul></li>
@@ -197,13 +203,56 @@ ul.task-list li input[type="checkbox"] {
 <li><code>orientation: pages</code> not valid in Quarto dashboard format. Changed to <code>orientation: rows</code>.</li>
 </ul>
 </section>
+</section>
+<section id="to-2026-05-03" class="level2">
+<h2 class="anchored" data-anchor-id="to-2026-05-03">2026-04-27 to 2026-05-03</h2>
+<section id="completed-1" class="level3">
+<h3 class="anchored" data-anchor-id="completed-1">Completed</h3>
+<ul>
+<li>Multi-country dashboard: Ireland, England, Scotland, Wales, Great Britain (single page, tabbed)</li>
+<li>Parameterized R functions: <code>crs_projected</code> arg, generic <code>get_country_boundaries(iso3, level)</code></li>
+<li>Fixed sea-distance bug: GISCO coastline polygons→boundary linestrings (was all-coastal)</li>
+<li>Fixed island bug: <code>Inf→0</code> for disconnected coastal islands (Orkney, Shetland, IoW)</li>
+<li>Fixed GADM GBR name quality: 78-entry HASC→name lookup + camel-case cleaning</li>
+<li>DT::datatable() for neighbour + summary tables (sortable, filterable)</li>
+<li>Dark theme: black background plots, white captions, DarkMatter tiles, legend contrast CSS</li>
+<li>Base R <code>%||%</code> cached fallback on ALL remote fetches (GADM + GISCO)</li>
+<li>Cached boundary data in inst/extdata/ (1.2MB: IRL_1, GBR_2, GBR_3, coastline)</li>
+<li>Ireland snapshot regression test (18 coastal counties, all 32 distances verified)</li>
+<li>Coastline resolution sanity check: warns if &lt;30% counties detected as coastal</li>
+<li>Raised issues: #2 (layout), #3 (coastline regression), #4 (legend clipping)</li>
+<li>Tagged v0.1.0-ireland as revert point</li>
+</ul>
+</section>
+<section id="failed-approaches-2" class="level3">
+<h3 class="anchored" data-anchor-id="failed-approaches-2">Failed Approaches</h3>
+<ul>
+<li>GISCO coastline res “03” returned 404 (transient). Fell back to res “20” which lost Leitrim + Limerick. Fixed by restoring “03” when API recovered + adding cached fallback.</li>
+<li>GADM GBR level 2: 67 rows have NAME_2 = literal string “NA”, 1 row has all fields NA (junk). Fixed with HASC lookup + drop junk rows.</li>
+<li>Leaflet legend bottomright overlapped by adjacent table column. Moved to topleft.</li>
+<li>Leaflet legend bottomleft clipped at plot edge. Moved to topleft with CSS margin.</li>
+<li>Markdown <code>[text](url)</code> links in kable captions render as literal text. Changed to <code>&lt;a href&gt;</code> HTML tags.</li>
+</ul>
+</section>
+<section id="accuracy-metrics-1" class="level3">
+<h3 class="anchored" data-anchor-id="accuracy-metrics-1">Accuracy / Metrics</h3>
+<ul>
+<li>Tests: 12 passing [ FAIL 0 | WARN 1 | SKIP 0 | PASS 12 ]</li>
+<li>Snapshot test verifies all 32 Ireland county distances</li>
+<li>5 dashboard tabs: Ireland, England, Scotland, Wales, Great Britain</li>
+</ul>
+</section>
 <section id="known-limitations" class="level3">
 <h3 class="anchored" data-anchor-id="known-limitations">Known Limitations</h3>
 <ul>
 <li>OSM deep hierarchy (baronies, parishes, townlands) not yet implemented</li>
 <li>Belfast assigned to County Antrim (straddles Antrim/Down but canonically Antrim)</li>
 <li>Running <code>Rscript default.R</code> overwrites manual nix patches (udunits + shellHook)</li>
+<li>GADM GBR level 2 name quality: 78 entries required manual HASC lookup — fragile if GADM updates</li>
+<li>No snapshot regression tests for England/Scotland/Wales yet (only Ireland)</li>
+<li>Dashboard render takes ~3 min (5 tabs × GADM downloads + neighbour computation)</li>
 <li>T language integration TBD (JohnGavin/maps#1)</li>
+<li>Legend still slightly clipped in some viewport sizes (JohnGavin/maps#4)</li>
 </ul>
 
 

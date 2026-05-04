@@ -23,181 +23,12 @@ library(dplyr)
 library(igraph)
 library(DT)
 
-# ---- helpers (inline so the vignette is self-contained) ----------------------
-
-# Local cache fallback: resolve RDS path for installed package or dev tree.
-# system.file() returns "" when the package is not installed; find.package()
-# locates the source tree when loaded via pkgload::load_all() in dev mode.
-.cached_rds <- function(filename) {
-  installed <- system.file("extdata", filename, package = "maps")
-  if (nzchar(installed)) return(readRDS(installed))
-  dev_path <- tryCatch(
-    file.path(find.package("maps"), "inst", "extdata", filename),
-    error = function(e) ""
-  )
-  if (nzchar(dev_path) && file.exists(dev_path)) {
-    return(readRDS(dev_path))
-  }
-  # Last resort: path relative to vignette source file location
-  vignette_dir <- tryCatch(dirname(normalizePath(knitr::current_input())), error = function(e) "")
-  if (nzchar(vignette_dir)) {
-    src_path <- normalizePath(
-      file.path(vignette_dir, "..", "..", "inst", "extdata", filename),
-      mustWork = FALSE
-    )
-    if (file.exists(src_path)) return(readRDS(src_path))
-  }
-  NULL
-}
-
-.get_ireland_32_counties <- function() {
-  irl <- tryCatch(
-    sf::st_read(
-      "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_IRL_1.json",
-      quiet = TRUE
-    ),
-    error = function(e) NULL
-  ) %||% .cached_rds("gadm41_IRL_1.rds")
-  irl$county_name <- ifelse(
-    irl$HASC_1 == "IE.CK", "Cork", as.character(irl$NAME_1)
-  )
-  irl$country <- "Republic of Ireland"
-  irl <- irl[, c("county_name", "country", "geometry")]
-
-  gbr3 <- tryCatch(
-    sf::st_read(
-      "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_3.json",
-      quiet = TRUE
-    ),
-    error = function(e) NULL
-  ) %||% .cached_rds("gadm41_GBR_3.rds")
-  ni3 <- gbr3[!is.na(gbr3$NAME_1) & gbr3$NAME_1 == "NorthernIreland", ]
-
-  ni_lookup <- c(
-    Antrim = "Antrim", Newtownabbey = "Antrim", Ballymena = "Antrim",
-    Ballymoney = "Antrim", Carrickfergus = "Antrim", Larne = "Antrim",
-    Moyle = "Antrim", Belfast = "Antrim",
-    Armagh = "Armagh", Banbridge = "Armagh", Craigavon = "Armagh",
-    Ards = "Down", NorthDown = "Down", Castlereagh = "Down",
-    Down = "Down", Lisburn = "Down", NewryandMourne = "Down",
-    Fermanagh = "Fermanagh",
-    Coleraine = "Londonderry", Derry = "Londonderry",
-    Limavady = "Londonderry", Magherafelt = "Londonderry",
-    Cookstown = "Tyrone", Dungannon = "Tyrone", Omagh = "Tyrone",
-    Strabane = "Tyrone"
-  )
-
-  ni3$county_name <- ni_lookup[ni3$NAME_3]
-  ni3 <- ni3[!is.na(ni3$county_name), ]
-
-  ni_counties <- stats::aggregate(
-    ni3["geometry"],
-    by = list(county_name = ni3$county_name),
-    FUN = function(x) sf::st_union(x)
-  )
-  ni_counties$country <- "Northern Ireland"
-  ni_counties <- ni_counties[, c("county_name", "country", "geometry")]
-
-  rbind(irl, ni_counties)
-}
-
-.compute_sea_distance <- function(counties, coastline, crs_projected = 27700L) {
-  old_s2 <- sf::sf_use_s2()
-  on.exit(sf::sf_use_s2(old_s2), add = TRUE)
-  sf::sf_use_s2(FALSE)
-
-  has_crs <- !is.na(sf::st_crs(counties))
-  if (has_crs) {
-    counties_m   <- sf::st_transform(counties, crs_projected)
-    counties_buf <- sf::st_buffer(counties_m, 200)
-    nb_mat       <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
-    diag(nb_mat) <- FALSE
-    adj_matrix   <- nb_mat * 1L
-  } else {
-    adj_matrix <- sf::st_touches(counties, sparse = FALSE) * 1L
-  }
-
-  g <- igraph::graph_from_adjacency_matrix(adj_matrix, mode = "undirected",
-                                           diag = FALSE)
-
-  geom_types <- unique(as.character(sf::st_geometry_type(sf::st_geometry(coastline))))
-  if (all(geom_types %in% c("POLYGON", "MULTIPOLYGON"))) {
-    bbox_buf      <- sf::st_bbox(counties) + c(-1, -1, 1, 1)
-    coast_cropped <- sf::st_crop(coastline, bbox_buf)
-    coast_lines   <- sf::st_boundary(sf::st_geometry(coast_cropped))
-    coastline_use <- sf::st_union(coast_lines)
-  } else {
-    coastline_use <- sf::st_union(sf::st_geometry(coastline))
-  }
-
-  if (has_crs && !is.na(sf::st_crs(coastline_use))) {
-    coastline_use <- sf::st_transform(coastline_use, sf::st_crs(counties))
-  }
-
-  coastal     <- lengths(sf::st_intersects(counties, coastline_use)) > 0
-  coastal_idx <- which(coastal)
-
-  n         <- nrow(counties)
-  min_dist  <- rep(Inf, n)
-
-  if (length(coastal_idx) > 0 && length(coastal_idx) < n) {
-    sp       <- igraph::distances(g, v = coastal_idx)
-    min_dist <- apply(sp, 2, min)
-  } else if (length(coastal_idx) == n) {
-    min_dist <- rep(0, n)
-  }
-
-  # Island fix: counties that are coastal but appear disconnected get Inf
-  # from the BFS (island counties have no land neighbours).
-  # Reset any Inf that belongs to a directly-coastal county to 0.
-  min_dist[is.infinite(min_dist) & coastal] <- 0
-  dist <- as.integer(min_dist)
-
-  counties$sea_distance <- dist
-  counties
-}
-
-.compute_neighbour_table <- function(counties, crs_projected = 27700L) {
-  old_s2 <- sf::sf_use_s2()
-  on.exit(sf::sf_use_s2(old_s2), add = TRUE)
-  sf::sf_use_s2(FALSE)
-
-  counties_m <- sf::st_transform(counties, crs_projected)
-  n <- nrow(counties_m)
-
-  counties_buf <- sf::st_buffer(counties_m, 200)
-  nb_mat <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
-  diag(nb_mat) <- FALSE
-
-  results <- lapply(seq_len(n), function(i) {
-    nb_idx   <- which(nb_mat[i, ])
-    nb_names <- counties_m$county_name[nb_idx]
-
-    cb_i     <- sf::st_boundary(sf::st_geometry(counties_m)[i])
-    cb_i_buf <- sf::st_buffer(cb_i, 100)
-
-    total_km <- sum(vapply(nb_idx, function(j) {
-      cb_j   <- sf::st_boundary(sf::st_geometry(counties_m)[j])
-      inters <- tryCatch(sf::st_intersection(cb_i_buf, cb_j), error = function(e) NULL)
-      if (is.null(inters) || all(sf::st_is_empty(inters))) return(0)
-      sum(as.numeric(sf::st_length(inters)), na.rm = TRUE) / 1000
-    }, numeric(1L)))
-
-    data.frame(
-      county_name        = counties_m$county_name[i],
-      n_neighbours       = length(nb_idx),
-      neighbour_names    = paste(sort(nb_names), collapse = ", "),
-      boundary_length_km = round(total_km, 1)
-    )
-  })
-
-  out <- do.call(rbind, results)
-  out[order(-out$n_neighbours, -out$boundary_length_km), ]
-}
-
-.summarise_sea_distance <- function(counties) {
-  dplyr::count(sf::st_drop_geometry(counties), .data$sea_distance, name = "n")
-}
+# Load package functions (find project root via DESCRIPTION)
+pkg_root <- tryCatch(
+  rprojroot::find_root("DESCRIPTION"),
+  error = function(e) normalizePath(file.path(getwd(), "..", ".."))
+)
+pkgload::load_all(pkg_root)
 
 # ---- render helpers ----------------------------------------------------------
 
@@ -356,85 +187,24 @@ igraph_link <- '<a href="https://r.igraph.org/" target="_blank">igraph</a>'
 sf_link     <- '<a href="https://r-spatial.github.io/sf/" target="_blank">sf</a>'
 
 # ---- fetch base data ---------------------------------------------------------
-coastline <- giscoR::gisco_get_coastallines(year = 2016, resolution = "03") %||%
-  .cached_rds("coastline_03_ireland_uk.rds")
+coastline <- get_coastline()
 
-ireland_counties_raw <- .get_ireland_32_counties()
+ireland_counties_raw <- get_ireland_32_counties()
 
-gbr2 <- tryCatch(
-  sf::st_read(
-    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_GBR_2.json",
-    quiet = TRUE
-  ),
-  error = function(e) NULL
-) %||% .cached_rds("gadm41_GBR_2.rds")
+gbr2         <- get_country_boundaries("GBR", 2L)
 england_raw  <- gbr2[gbr2$NAME_1 == "England",  ]
 scotland_raw <- gbr2[gbr2$NAME_1 == "Scotland", ]
 wales_raw    <- gbr2[gbr2$NAME_1 == "Wales",    ]
 
 for (obj_name in c("england_raw", "scotland_raw", "wales_raw")) {
   obj <- get(obj_name)
+
+  # Fix literal "NA" NAME_2 entries (GADM 4.1 GBR level 2 has 67 such rows)
+  # and clean camel-case formatting — delegated to fix_gadm_gbr_names().
+  obj <- fix_gadm_gbr_names(obj)
+
   obj$county_name <- as.character(obj$NAME_2)
   obj$country     <- as.character(obj$NAME_1)
-
-  # Fix literal "NA" county names via HASC_2 lookup and clean camel-case
-  # (GADM 4.1 GBR level 2 has 67 rows where NAME_2 is the string "NA")
-  is_na_str <- is.na(obj$county_name) | obj$county_name == "NA"
-  if (any(is_na_str)) {
-    hasc_lookup <- c(
-      "GB.TM" = "Tameside",       "GB.TD" = "Trafford",
-      "GB.WZ" = "Walsall",        "GB.WT" = "Warrington",
-      "GB.WR" = "Warwick",        "GB.WN" = "Wigan",
-      "GB.WL" = "Wiltshire",      "GB.WA" = "Windsor and Maidenhead",
-      "GB.WO" = "Wokingham",      "GB.WC" = "Worcestershire",
-      "GB.BS" = "Bristol",        "GB.BU" = "Buckinghamshire",
-      "GB.BR" = "Bury",           "GB.CM" = "Cambridgeshire",
-      "GB.CB" = "Central Bedfordshire",
-      "GB.CQ" = "Cheshire East",  "GB.BX" = "Barnsley",
-      "GB.CO" = "Cornwall",       "GB.CT" = "Coventry",
-      "GB.DB" = "Derbyshire",     "GB.DO" = "Devon",
-      "GB.DC" = "Doncaster",      "GB.DS" = "Dorset",
-      "GB.DY" = "Dudley",         "GB.EY" = "East Riding of Yorkshire",
-      "GB.ES" = "East Sussex",    "GB.EX" = "Essex",
-      "GB.GL" = "Greater London", "GB.HA" = "Hampshire",
-      "GB.HT" = "Hertfordshire",  "GB.KN" = "Knowsley",
-      "GB.BI" = "Birmingham",     "GB.LC" = "Leicester",
-      "GB.LE" = "Leicestershire", "GB.LI" = "Lincolnshire",
-      "GB.MN" = "Manchester",     "GB.MB" = "Middlesbrough",
-      "GB.NU" = "Newcastle upon Tyne",
-      "GB.NF" = "Norfolk",        "GB.NL" = "North Lincolnshire",
-      "GB.NS" = "North Somerset", "GB.NI" = "North Tyneside",
-      "GB.NA" = "Northamptonshire", "GB.NB" = "Northumberland",
-      "GB.NG" = "Nottingham",     "GB.NT" = "Nottinghamshire",
-      "GB.OX" = "Oxfordshire",    "GB.PS" = "Portsmouth",
-      "GB.RG" = "Reading",        "GB.RC" = "Redcar and Cleveland",
-      "GB.RD" = "Rochdale",       "GB.RH" = "Rotherham",
-      "GB.RL" = "Rutland",        "GB.BT" = "Bolton",
-      "GB.ZF" = "Salford",        "GB.ZW" = "Sandwell",
-      "GB.SE" = "Sefton",         "GB.SP" = "Shropshire",
-      "GB.ZL" = "Slough",         "GB.SI" = "Solihull",
-      "GB.SX" = "South Tyneside", "GB.ZH" = "Southampton",
-      "GB.ST" = "Staffordshire",  "GB.SK" = "Stockport",
-      "GB.SO" = "Stoke-on-Trent", "GB.SD" = "Sunderland",
-      # Scotland
-      "GB.NR" = "North Ayrshire",
-      # Wales
-      "GB.GD" = "Gwynedd",          "GB.MT" = "Merthyr Tydfil",
-      "GB.NP" = "Newport",          "GB.SW" = "Swansea",
-      "GB.TF" = "Torfaen",          "GB.VG" = "Vale of Glamorgan",
-      "GB.WX" = "Wrexham",          "GB.BG" = "Bridgend",
-      "GB.BJ" = "Blaenau Gwent",    "GB.DI" = "Denbighshire"
-    )
-    obj$county_name[is_na_str] <- hasc_lookup[obj$HASC_2[is_na_str]]
-  }
-
-  # Clean camel-case: insert space before capital following a lower-case letter
-  obj$county_name <- gsub("([a-z])([A-Z])", "\\1 \\2", obj$county_name)
-  # Remove trailing ", County of" / ", City of" suffixes
-  obj$county_name <- gsub(",\\s*County\\s*of$|,Countyof$", "", obj$county_name)
-  obj$county_name <- gsub(",\\s*City\\s*of$|,Cityof$",     "", obj$county_name)
-  # Fix truncated Christchurch and Poole name
-  obj$county_name <- gsub(",Christchurchand Po$", ", Christchurch and Poole", obj$county_name)
 
   # Drop rows where county_name is still NA after lookup (junk GADM rows)
   still_bad <- is.na(obj$county_name) | obj$county_name == "NA"
@@ -445,7 +215,7 @@ for (obj_name in c("england_raw", "scotland_raw", "wales_raw")) {
 
   # Validate: no NA or literal "NA" county names remain
   stopifnot(
-    "county_name contains NA after name fixing"          = !any(is.na(obj$county_name)),
+    "county_name contains NA after name fixing"           = !any(is.na(obj$county_name)),
     "county_name contains literal 'NA' after name fixing" = !any(obj$county_name == "NA", na.rm = TRUE)
   )
 
@@ -464,12 +234,12 @@ region_specs <- list(
 
 for (rname in names(region_specs)) {
   spec      <- region_specs[[rname]]
-  counties  <- .compute_sea_distance(spec$raw, coastline, crs_projected = spec$crs)
+  counties  <- compute_sea_distance(spec$raw, coastline, crs_projected = spec$crs)
   stopifnot(!any(is.na(counties$sea_distance)))
   stopifnot(!any(is.na(counties$county_name)))
 
-  summary_df  <- .summarise_sea_distance(counties)
-  nb_table    <- .compute_neighbour_table(counties, crs_projected = spec$crs)
+  summary_df  <- summarise_sea_distance(counties)
+  nb_table    <- compute_neighbour_table(counties, crs_projected = spec$crs)
 
   n_counties   <- nrow(counties)
   n_coastal    <- sum(counties$sea_distance == 0L, na.rm = TRUE)
@@ -555,13 +325,13 @@ for (rname in names(region_specs)) {
     regions[["Wales"]]$counties
   )
 
-  gb_counties <- .compute_sea_distance(gb_counties_raw, coastline,
-                                       crs_projected = gb_crs)
+  gb_counties <- compute_sea_distance(gb_counties_raw, coastline,
+                                      crs_projected = gb_crs)
   stopifnot(!any(is.na(gb_counties$sea_distance)))
   stopifnot(!any(is.na(gb_counties$county_name)))
 
-  gb_summary    <- .summarise_sea_distance(gb_counties)
-  gb_nb_table   <- .compute_neighbour_table(gb_counties, crs_projected = gb_crs)
+  gb_summary    <- summarise_sea_distance(gb_counties)
+  gb_nb_table   <- compute_neighbour_table(gb_counties, crs_projected = gb_crs)
 
   gb_n_counties    <- nrow(gb_counties)
   gb_n_coastal     <- sum(gb_counties$sea_distance == 0L, na.rm = TRUE)

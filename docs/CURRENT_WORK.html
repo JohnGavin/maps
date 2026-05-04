@@ -116,11 +116,10 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#current-work" id="toc-current-work" class="nav-link active" data-scroll-target="#current-work">Current Work</a>
   <ul class="collapse">
-  <li><a href="#status-dashboard-deployed-to-gh-pages-with-32-irish-counties." id="toc-status-dashboard-deployed-to-gh-pages-with-32-irish-counties." class="nav-link" data-scroll-target="#status-dashboard-deployed-to-gh-pages-with-32-irish-counties.">Status: Dashboard deployed to gh-pages with 32 Irish counties.</a></li>
+  <li><a href="#status-5-tab-dashboard-deployed.-snapshot-tests-in-place." id="toc-status-5-tab-dashboard-deployed.-snapshot-tests-in-place." class="nav-link" data-scroll-target="#status-5-tab-dashboard-deployed.-snapshot-tests-in-place.">Status: 5-tab dashboard deployed. Snapshot tests in place.</a></li>
   <li><a href="#live-site" id="toc-live-site" class="nav-link" data-scroll-target="#live-site">Live Site</a></li>
-  <li><a href="#completed" id="toc-completed" class="nav-link" data-scroll-target="#completed">Completed</a></li>
-  <li><a href="#next-steps" id="toc-next-steps" class="nav-link" data-scroll-target="#next-steps">Next Steps</a></li>
-  <li><a href="#architecture" id="toc-architecture" class="nav-link" data-scroll-target="#architecture">Architecture</a></li>
+  <li><a href="#open-issues" id="toc-open-issues" class="nav-link" data-scroll-target="#open-issues">Open Issues</a></li>
+  <li><a href="#next-session" id="toc-next-session" class="nav-link" data-scroll-target="#next-session">Next Session</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -133,52 +132,35 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="current-work" class="level1">
 <h1>Current Work</h1>
-<section id="status-dashboard-deployed-to-gh-pages-with-32-irish-counties." class="level2">
-<h2 class="anchored" data-anchor-id="status-dashboard-deployed-to-gh-pages-with-32-irish-counties.">Status: Dashboard deployed to gh-pages with 32 Irish counties.</h2>
+<section id="status-5-tab-dashboard-deployed.-snapshot-tests-in-place." class="level2">
+<h2 class="anchored" data-anchor-id="status-5-tab-dashboard-deployed.-snapshot-tests-in-place.">Status: 5-tab dashboard deployed. Snapshot tests in place.</h2>
 </section>
 <section id="live-site" class="level2">
 <h2 class="anchored" data-anchor-id="live-site">Live Site</h2>
 <ul>
-<li>Homepage: https://johngavin.github.io/maps/</li>
 <li>Dashboard: https://johngavin.github.io/maps/vignettes/articles/dashboard.html</li>
+<li>Tabs: Ireland, England, Scotland, Wales, Great Britain</li>
 </ul>
 </section>
-<section id="completed" class="level2">
-<h2 class="anchored" data-anchor-id="completed">Completed</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" checked="">Package skeleton (DESCRIPTION, LICENSE, .gitignore)</label></li>
-<li><label><input type="checkbox" checked="">default.R + default.nix via rix (R 4.5.3, patched for udunits + shellHook)</label></li>
-<li><label><input type="checkbox" checked="">R/get_boundaries.R (GADM 32 counties: 26 ROI + 6 NI dissolved)</label></li>
-<li><label><input type="checkbox" checked="">R/sea_distance.R (sf::st_touches + igraph BFS)</label></li>
-<li><label><input type="checkbox" checked="">Tests pass: [ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ]</label></li>
-<li><label><input type="checkbox" checked="">NAMESPACE + man pages generated</label></li>
-<li><label><input type="checkbox" checked="">GitHub repo: https://github.com/JohnGavin/maps</label></li>
-<li><label><input type="checkbox" checked="">Issue #1: T language evaluation</label></li>
-<li><label><input type="checkbox" checked="">Nix environment fixed (udunits overlay + shellHook)</label></li>
-<li><label><input type="checkbox" checked="">Quarto dashboard rendered and deployed to gh-pages</label></li>
-<li><label><input type="checkbox" checked="">32 traditional Irish counties (GADM, not NUTS3)</label></li>
-</ul>
-</section>
-<section id="next-steps" class="level2">
-<h2 class="anchored" data-anchor-id="next-steps">Next Steps</h2>
-<ol type="1">
-<li>Implement deeper OSM hierarchy (baronies, parishes, townlands) via osmdata</li>
-<li>Add province-level map page to dashboard</li>
-<li>Extend to other EU countries</li>
-<li>Resolve JohnGavin/maps#1 (T language decision)</li>
-<li>Add GitHub Actions CI for automated rendering</li>
-</ol>
-</section>
-<section id="architecture" class="level2">
-<h2 class="anchored" data-anchor-id="architecture">Architecture</h2>
+<section id="open-issues" class="level2">
+<h2 class="anchored" data-anchor-id="open-issues">Open Issues</h2>
 <ul>
-<li><code>R/get_boundaries.R</code> — GADM 32 counties + giscoR NUTS for country/province</li>
-<li><code>R/sea_distance.R</code> — adjacency graph via sf::st_touches + BFS via igraph</li>
-<li><code>tests/testthat/test-sea_distance.R</code> — unit tests for distance computation</li>
-<li><code>vignettes/articles/dashboard.qmd</code> — 2-page leaflet + summary dashboard</li>
-<li><code>index.qmd</code> + <code>_quarto.yml</code> — Quarto website, output to docs/</li>
-<li><code>docs/</code> — rendered site served by gh-pages</li>
+<li>JohnGavin/maps#1 — T language evaluation (TBD)</li>
+<li>JohnGavin/maps#2 — Layout fixes (partially addressed)</li>
+<li>JohnGavin/maps#3 — Coastline regression (fixed, snapshot test added)</li>
+<li>JohnGavin/maps#4 — Legend clipping (partially addressed)</li>
 </ul>
+</section>
+<section id="next-session" class="level2">
+<h2 class="anchored" data-anchor-id="next-session">Next Session</h2>
+<ol type="1">
+<li>Add snapshot regression tests for England/Scotland/Wales</li>
+<li>Cache pre-computed region data to speed up dashboard render</li>
+<li>Deduplicate inline helpers (Phase 4: replace with library(maps) calls)</li>
+<li>Consider OSM deep hierarchy for Ireland (baronies, parishes)</li>
+<li>Resolve legend clipping edge cases (#4)</li>
+<li>Consider parameterized QMD template (Phase 3 of plan)</li>
+</ol>
 
 
 </section>
