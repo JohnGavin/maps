@@ -226,20 +226,22 @@ for (obj_name in c("england_raw", "scotland_raw", "wales_raw")) {
 regions <- list()
 
 region_specs <- list(
-  Ireland  = list(raw = ireland_counties_raw,  crs = 2157L,  label_long = "Ireland's 32 traditional counties",  unit_label = "county"),
-  England  = list(raw = england_raw,           crs = 27700L, label_long = "England's counties",                 unit_label = "county"),
-  Scotland = list(raw = scotland_raw,          crs = 27700L, label_long = "Scotland's council areas",           unit_label = "council area"),
-  Wales    = list(raw = wales_raw,             crs = 27700L, label_long = "Wales's counties",                   unit_label = "county")
+  Ireland  = list(raw = ireland_counties_raw,  crs = 2157L,  buffer_m = 200,   label_long = "Ireland's 32 traditional counties",  unit_label = "county"),
+  England  = list(raw = england_raw,           crs = 27700L, buffer_m = 10000, label_long = "England's counties",                 unit_label = "county"),
+  Scotland = list(raw = scotland_raw,          crs = 27700L, buffer_m = 10000, label_long = "Scotland's council areas",           unit_label = "council area"),
+  Wales    = list(raw = wales_raw,             crs = 27700L, buffer_m = 10000, label_long = "Wales's counties",                   unit_label = "county")
 )
 
 for (rname in names(region_specs)) {
   spec      <- region_specs[[rname]]
-  counties  <- compute_sea_distance(spec$raw, coastline, crs_projected = spec$crs)
+  counties  <- compute_sea_distance(spec$raw, coastline,
+                                    crs_projected = spec$crs, buffer_m = spec$buffer_m)
   stopifnot(!any(is.na(counties$sea_distance)))
   stopifnot(!any(is.na(counties$county_name)))
 
   summary_df  <- summarise_sea_distance(counties)
-  nb_table    <- compute_neighbour_table(counties, crs_projected = spec$crs)
+  nb_table    <- compute_neighbour_table(counties, crs_projected = spec$crs,
+                                         buffer_m = spec$buffer_m)
 
   n_counties   <- nrow(counties)
   n_coastal    <- sum(counties$sea_distance == 0L, na.rm = TRUE)
@@ -326,12 +328,13 @@ for (rname in names(region_specs)) {
   )
 
   gb_counties <- compute_sea_distance(gb_counties_raw, coastline,
-                                      crs_projected = gb_crs)
+                                      crs_projected = gb_crs, buffer_m = 10000)
   stopifnot(!any(is.na(gb_counties$sea_distance)))
   stopifnot(!any(is.na(gb_counties$county_name)))
 
   gb_summary    <- summarise_sea_distance(gb_counties)
-  gb_nb_table   <- compute_neighbour_table(gb_counties, crs_projected = gb_crs)
+  gb_nb_table   <- compute_neighbour_table(gb_counties, crs_projected = gb_crs,
+                                           buffer_m = 10000)
 
   gb_n_counties    <- nrow(gb_counties)
   gb_n_coastal     <- sum(gb_counties$sea_distance == 0L, na.rm = TRUE)

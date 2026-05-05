@@ -4,32 +4,26 @@
 \alias{compute_neighbour_table}
 \title{Compute County Neighbour Table}
 \usage{
-compute_neighbour_table(counties, crs_projected = 3035L)
+compute_neighbour_table(counties, crs_projected = 3035L, buffer_m = 200)
 }
 \arguments{
 \item{counties}{An sf object of county polygons with a \code{county_name} column.}
 
-\item{crs_projected}{Integer. EPSG code for a projected (metre-based) CRS
-used to build the 200 m adjacency buffer and measure boundary lengths.
-Default 3035L (ETRS89-LAEA), which covers all EU/UK countries.}
+\item{crs_projected}{Integer. EPSG code for a projected (metre-based) CRS.
+Default 3035L (ETRS89-LAEA).}
+
+\item{buffer_m}{Numeric. Buffer distance in metres for adjacency detection.
+Default 200. Use 10000 for GADM GBR level 2 (see JohnGavin/maps#5).}
 }
 \value{
-A data.frame with columns:
-\describe{
-\item{county_name}{County name.}
-\item{n_neighbours}{Number of neighbouring counties.}
-\item{neighbour_names}{Comma-separated, alphabetically sorted neighbour names.}
-\item{boundary_length_km}{Total shared boundary length in km (rounded to 1 dp).}
-}
-Rows are ordered by decreasing \code{n_neighbours}, ties broken by decreasing
-\code{boundary_length_km}.
+A data.frame with columns: county_name, n_neighbours,
+neighbour_names, boundary_length_km. Ordered by decreasing n_neighbours.
 }
 \description{
 For each county, compute the number of neighbours (counties sharing a
 boundary), their names, and the total shared boundary length in km.
 }
 \details{
-Adjacency is detected using a 200 m buffer in \code{crs_projected} to handle
-small coordinate gaps in GADM polygon boundaries that cause
-\code{sf::st_touches()} to miss shared edges.
+Adjacency is detected using a buffer in \code{crs_projected} to handle
+coordinate gaps in GADM polygon boundaries.
 }

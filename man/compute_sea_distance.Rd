@@ -4,7 +4,12 @@
 \alias{compute_sea_distance}
 \title{Compute Sea Distance for Counties}
 \usage{
-compute_sea_distance(counties, coastline, crs_projected = 3035L)
+compute_sea_distance(
+  counties,
+  coastline,
+  crs_projected = 3035L,
+  buffer_m = 200
+)
 }
 \arguments{
 \item{counties}{An sf object of county polygons (any CRS, or no CRS for
@@ -15,8 +20,12 @@ geometries, or POLYGON/MULTIPOLYGON land-mass geometries (e.g. from
 \code{giscoR::gisco_get_coastallines()}).}
 
 \item{crs_projected}{Integer. EPSG code for a projected (metre-based) CRS
-used to build the 200 m adjacency buffer. Default 3035L (ETRS89-LAEA),
+used to build the adjacency buffer. Default 3035L (ETRS89-LAEA),
 which covers all EU/UK countries. Use 2157L for Ireland-only datasets.}
+
+\item{buffer_m}{Numeric. Buffer distance in metres for adjacency detection.
+Default 200. Use 10000 for GADM GBR level 2 data which has large gaps
+between unitary authority polygons (see JohnGavin/maps#5).}
 }
 \value{
 The input sf object with an added \code{sea_distance} integer column.

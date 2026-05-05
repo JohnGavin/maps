@@ -27,11 +27,15 @@
 #'   geometries, or POLYGON/MULTIPOLYGON land-mass geometries (e.g. from
 #'   `giscoR::gisco_get_coastallines()`).
 #' @param crs_projected Integer. EPSG code for a projected (metre-based) CRS
-#'   used to build the 200 m adjacency buffer. Default 3035L (ETRS89-LAEA),
+#'   used to build the adjacency buffer. Default 3035L (ETRS89-LAEA),
 #'   which covers all EU/UK countries. Use 2157L for Ireland-only datasets.
+#' @param buffer_m Numeric. Buffer distance in metres for adjacency detection.
+#'   Default 200. Use 10000 for GADM GBR level 2 data which has large gaps
+#'   between unitary authority polygons (see JohnGavin/maps#5).
 #' @return The input sf object with an added `sea_distance` integer column.
 #' @export
-compute_sea_distance <- function(counties, coastline, crs_projected = 3035L) {
+compute_sea_distance <- function(counties, coastline, crs_projected = 3035L,
+                                 buffer_m = 200) {
   old_s2 <- sf::sf_use_s2()
   on.exit(sf::sf_use_s2(old_s2), add = TRUE)
   sf::sf_use_s2(FALSE)
@@ -44,7 +48,7 @@ compute_sea_distance <- function(counties, coastline, crs_projected = 3035L) {
   has_crs <- !is.na(sf::st_crs(counties))
   if (has_crs) {
     counties_m  <- sf::st_transform(counties, crs_projected)
-    counties_buf <- sf::st_buffer(counties_m, 200)
+    counties_buf <- sf::st_buffer(counties_m, buffer_m)
     nb_mat      <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
     diag(nb_mat) <- FALSE
     adj_matrix  <- nb_mat * 1L
@@ -145,25 +149,19 @@ summarise_sea_distance <- function(counties) {
 #' For each county, compute the number of neighbours (counties sharing a
 #' boundary), their names, and the total shared boundary length in km.
 #'
-#' Adjacency is detected using a 200 m buffer in `crs_projected` to handle
-#' small coordinate gaps in GADM polygon boundaries that cause
-#' `sf::st_touches()` to miss shared edges.
+#' Adjacency is detected using a buffer in `crs_projected` to handle
+#' coordinate gaps in GADM polygon boundaries.
 #'
 #' @param counties An sf object of county polygons with a `county_name` column.
-#' @param crs_projected Integer. EPSG code for a projected (metre-based) CRS
-#'   used to build the 200 m adjacency buffer and measure boundary lengths.
-#'   Default 3035L (ETRS89-LAEA), which covers all EU/UK countries.
-#' @return A data.frame with columns:
-#'   \describe{
-#'     \item{county_name}{County name.}
-#'     \item{n_neighbours}{Number of neighbouring counties.}
-#'     \item{neighbour_names}{Comma-separated, alphabetically sorted neighbour names.}
-#'     \item{boundary_length_km}{Total shared boundary length in km (rounded to 1 dp).}
-#'   }
-#'   Rows are ordered by decreasing `n_neighbours`, ties broken by decreasing
-#'   `boundary_length_km`.
+#' @param crs_projected Integer. EPSG code for a projected (metre-based) CRS.
+#'   Default 3035L (ETRS89-LAEA).
+#' @param buffer_m Numeric. Buffer distance in metres for adjacency detection.
+#'   Default 200. Use 10000 for GADM GBR level 2 (see JohnGavin/maps#5).
+#' @return A data.frame with columns: county_name, n_neighbours,
+#'   neighbour_names, boundary_length_km. Ordered by decreasing n_neighbours.
 #' @export
-compute_neighbour_table <- function(counties, crs_projected = 3035L) {
+compute_neighbour_table <- function(counties, crs_projected = 3035L,
+                                    buffer_m = 200) {
   stopifnot(
     "counties must be an sf object"           = inherits(counties, "sf"),
     "counties must have a county_name column" = "county_name" %in% names(counties)
@@ -176,8 +174,8 @@ compute_neighbour_table <- function(counties, crs_projected = 3035L) {
   counties_m <- sf::st_transform(counties, crs_projected)
   n          <- nrow(counties_m)
 
-  # Neighbour detection via 200 m buffer
-  counties_buf <- sf::st_buffer(counties_m, 200)
+  # Neighbour detection via buffer
+  counties_buf <- sf::st_buffer(counties_m, buffer_m)
   nb_mat       <- sf::st_intersects(counties_buf, counties_m, sparse = FALSE)
   diag(nb_mat) <- FALSE
 
