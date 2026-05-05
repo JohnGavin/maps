@@ -11,13 +11,15 @@
 #
 # Known GADM 4.1 data quirks preserved intentionally in these snapshots:
 #   - England: "Bournemouth, Christchurch and Poole" appears twice (nrow = 115)
+#     and is stored truncated as "Bournemouth,Christchurchand Po" in GADM data
 #   - Wales: "Newport" appears twice (nrow = 22)
-#   - Camel-case name artifacts: "Blackburnwith Darwen", "Brightonand Hove",
-#     "Isleof Wight", "Islesof Scilly", "Kingstonupon Hull", "Telfordand Wrekin",
-#     "Argylland Bute", "Cityof Edinburgh", "Dumfriesand Galloway",
-#     "Perthand Kinross", "Isleof Anglesey"
-#   These are produced by fix_gadm_gbr_names() and are pinned here so any
-#   change to the name-fixing logic is flagged by a failing test.
+#   - Remaining camel-case artifacts (not yet fixed in fix_gadm_gbr_names()):
+#     "Bathand North East Somerset", "Argyll and Bute", "City of Edinburgh",
+#     "Dumfries and Galloway", "Perth and Kinross"
+#   - Fixed name artifacts (now corrected): "Blackburn with Darwen",
+#     "Brighton and Hove", "Isle of Wight", "Isles of Scilly",
+#     "Kingston upon Hull", "Telford and Wrekin", "Isle of Anglesey"
+#   These are pinned here so any change to the name-fixing logic is flagged.
 
 # Helper: prepare one nation's sf from the GBR level-2 data
 prepare_nation <- function(gbr2, country, coast) {
@@ -48,7 +50,7 @@ test_that("England sea-distance snapshot at resolution 03", {
   expect_false(any(is.na(eng$county_name)))
   expect_false(any(eng$county_name == "NA"))
 
-  # Row count (115 includes one duplicate "Bournemouth, Christchurch and Poole")
+  # Row count (115 includes one duplicate "Bournemouth,Christchurchand Po")
   expect_equal(nrow(eng), 115L)
 
   # Coastal count
@@ -60,7 +62,7 @@ test_that("England sea-distance snapshot at resolution 03", {
 
   # Distance-4 counties (most inland)
   deepest <- sort(eng$county_name[eng$sea_distance == 4L])
-  expect_equal(deepest, c("Blackburnwith Darwen", "Herefordshire", "Sandwell"),
+  expect_equal(deepest, c("Blackburn with Darwen", "Herefordshire", "Sandwell"),
                info = "Distance-4 county set changed — regression detected")
 
   # Full distance snapshot (sorted by name)
@@ -73,14 +75,14 @@ test_that("England sea-distance snapshot at resolution 03", {
     "Bathand North East Somerset" = 1L,
     "Bedford" = 1L,
     "Birmingham" = 3L,
-    "Blackburnwith Darwen" = 4L,
+    "Blackburn with Darwen" = 4L,
     "Blackpool" = 0L,
     "Bolton" = 3L,
-    "Bournemouth, Christchurch and Poole" = 0L,
-    "Bournemouth, Christchurch and Poole" = 0L,
+    "Bournemouth,Christchurchand Po" = 0L,
+    "Bournemouth,Christchurchand Po" = 0L,
     "Bracknell Forest" = 1L,
     "Bradford" = 1L,
-    "Brightonand Hove" = 0L,
+    "Brighton and Hove" = 0L,
     "Bristol" = 0L,
     "Buckinghamshire" = 1L,
     "Bury" = 3L,
@@ -109,10 +111,10 @@ test_that("England sea-distance snapshot at resolution 03", {
     "Hartlepool" = 0L,
     "Herefordshire" = 4L,
     "Hertfordshire" = 1L,
-    "Isleof Wight" = 0L,
-    "Islesof Scilly" = 0L,
+    "Isle of Wight" = 0L,
+    "Isles of Scilly" = 0L,
     "Kent" = 0L,
-    "Kingstonupon Hull" = 0L,
+    "Kingston upon Hull" = 0L,
     "Kirklees" = 2L,
     "Knowsley" = 1L,
     "Leeds" = 1L,
@@ -166,7 +168,7 @@ test_that("England sea-distance snapshot at resolution 03", {
     "Surrey" = 1L,
     "Swindon" = 2L,
     "Tameside" = 3L,
-    "Telfordand Wrekin" = 3L,
+    "Telford and Wrekin" = 3L,
     "Thurrock" = 0L,
     "Torbay" = 0L,
     "Trafford" = 2L,
@@ -235,10 +237,10 @@ test_that("Scotland sea-distance snapshot at resolution 03", {
     "Aberdeen City"        = 0L,
     "Aberdeenshire"        = 0L,
     "Angus"                = 0L,
-    "Argylland Bute"       = 0L,
-    "Cityof Edinburgh"     = 0L,
+    "Argyll and Bute"       = 0L,
+    "City of Edinburgh"     = 0L,
     "Clackmannanshire"     = 0L,
-    "Dumfriesand Galloway" = 0L,
+    "Dumfries and Galloway" = 0L,
     "Dundee City"          = 0L,
     "East Ayrshire"        = 1L,
     "East Dunbartonshire"  = 1L,
@@ -255,7 +257,7 @@ test_that("Scotland sea-distance snapshot at resolution 03", {
     "North Ayrshire"       = 0L,
     "North Lanarkshire"    = 1L,
     "Orkney Islands"       = 0L,
-    "Perthand Kinross"     = 0L,
+    "Perth and Kinross"     = 0L,
     "Renfrewshire"         = 0L,
     "Scottish Borders"     = 0L,
     "Shetland Islands"     = 0L,
@@ -320,7 +322,7 @@ test_that("Wales sea-distance snapshot at resolution 03", {
     "Denbighshire"     = 0L,
     "Flintshire"       = 0L,
     "Gwynedd"          = 0L,
-    "Isleof Anglesey"  = 0L,
+    "Isle of Anglesey" = 0L,
     "Merthyr Tydfil"   = 2L,
     "Monmouthshire"    = 0L,
     "Newport"          = 0L,

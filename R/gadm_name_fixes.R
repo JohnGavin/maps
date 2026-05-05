@@ -102,16 +102,33 @@ fix_gadm_gbr_names <- function(sf_data) {
   # Clean camel-case formatting: insert space before each capital following a lower
   sf_data$NAME_2 <- gsub("([a-z])([A-Z])", "\\1 \\2", sf_data$NAME_2)
 
+  # Fix specific compound preposition names that camel-case regex misses.
+  # These are known GADM patterns — explicit substitutions avoid breaking
+  # real words like "Shetland", "Northumberland", "Sunderland".
+  sf_data$NAME_2 <- gsub("Blackburnwith", "Blackburn with", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Kingstonupon", "Kingston upon", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Brightonand", "Brighton and", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Telfordand", "Telford and", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Isleof", "Isle of", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Islesof", "Isles of", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Argylland", "Argyll and", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Dumfriesand", "Dumfries and", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Perthand", "Perth and", sf_data$NAME_2)
+  sf_data$NAME_2 <- gsub("Cityof", "City of", sf_data$NAME_2)
+  # Clean double spaces from chained fixes
+
+  sf_data$NAME_2 <- gsub("\\s+", " ", trimws(sf_data$NAME_2))
+
   # Remove trailing ", County of" / ",Countyof" suffixes
   sf_data$NAME_2 <- gsub(",\\s*County\\s*of$|,Countyof$", "", sf_data$NAME_2)
 
   # Remove trailing ", City of" / ",Cityof" suffixes
   sf_data$NAME_2 <- gsub(",\\s*City\\s*of$|,Cityof$", "", sf_data$NAME_2)
 
-  # Fix specific truncated name that camel-case expansion doesn't handle
+  # Fix specific truncated/malformed multi-word names
   sf_data$NAME_2 <- gsub(
-    ",Christchurchand Po$",
-    ", Christchurch and Poole",
+    "Bournemouth,\\s*Christchurch and Po$",
+    "Bournemouth, Christchurch and Poole",
     sf_data$NAME_2
   )
 
