@@ -72,17 +72,38 @@
 - Leaflet legend bottomleft clipped at plot edge. Moved to topleft with CSS margin.
 - Markdown `[text](url)` links in kable captions render as literal text. Changed to `<a href>` HTML tags.
 
+## 2026-05-04 to 2026-05-06
+
+### Completed
+- UK snapshot regression tests: England (115 counties), Scotland (32), Wales (22) — 24 new assertions
+- Deduplicated dashboard: removed ~236 lines of inline helpers, now uses `pkgload::load_all()`
+- Fixed GADM name cleaning: "Blackburn with Darwen", "Brighton and Hove", "Kingston upon Hull",
+  "Isle of Wight", "Argyll and Bute", "City of Edinburgh" etc. (12 preposition substitutions)
+- Fixed GADM England polygon gaps (#5): new `buffer_m` param (10km for UK, 200m for Ireland)
+  - Blackburn with Darwen: distance 4→2 (correct per Wikipedia geography)
+  - Herefordshire: distance 4→3
+- Wider coastline cache (bbox ymin 51→49) covers Isles of Scilly
+- Raised issues: #5 (GADM gaps), #6 (new country checklist + alternative distance metrics)
+
+### Failed Approaches
+- Regex `([a-z])(and)([A-Z ])` for preposition fixing broke "Shetland" → "Shetl and". Fixed with explicit substitutions per compound name instead of generic regex.
+- 200m buffer insufficient for GADM GBR level 2 (gaps up to 28km between UAs and county councils). Fixed with 10km buffer.
+- `here::here()` in `pkgload::load_all()` failed during quarto render. Fixed with `rprojroot::find_root("DESCRIPTION")`.
+
 ### Accuracy / Metrics
-- Tests: 12 passing [ FAIL 0 | WARN 1 | SKIP 0 | PASS 12 ]
-- Snapshot test verifies all 32 Ireland county distances
-- 5 dashboard tabs: Ireland, England, Scotland, Wales, Great Britain
+- Tests: 36 passing [ FAIL 0 | WARN 4 | SKIP 0 | PASS 36 ]
+- Ireland: 7 snapshot assertions (18 coastal, all 32 distances, Laois=2)
+- England: 8 assertions (115 counties, 47 coastal, max distance now 3 with 10km buffer)
+- Scotland: 8 assertions (32 councils, 26 coastal, max distance 1)
+- Wales: 8 assertions (22 authorities, 15 coastal, max distance 2)
 
 ### Known Limitations
 - OSM deep hierarchy (baronies, parishes, townlands) not yet implemented
 - Belfast assigned to County Antrim (straddles Antrim/Down but canonically Antrim)
 - Running `Rscript default.R` overwrites manual nix patches (udunits + shellHook)
-- GADM GBR level 2 name quality: 78 entries required manual HASC lookup — fragile if GADM updates
-- No snapshot regression tests for England/Scotland/Wales yet (only Ireland)
-- Dashboard render takes ~3 min (5 tabs × GADM downloads + neighbour computation)
+- GADM GBR level 2 name quality: 78+ entries require manual HASC lookup — fragile if GADM updates
+- 10km buffer for UK may create false adjacencies for very small UAs
+- UK snapshot tests use default buffer_m (200) not dashboard buffer (10000) — values may differ
 - T language integration TBD (JohnGavin/maps#1)
-- Legend still slightly clipped in some viewport sizes (JohnGavin/maps#4)
+- Legend clipping in some viewports (JohnGavin/maps#4)
+- New country validation checklist documented in JohnGavin/maps#6
